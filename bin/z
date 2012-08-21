@@ -1,0 +1,5 @@
+#!/usr/bin/env coffee
+
+echo = () -> console.log arguments...
+
+echo 'z'
