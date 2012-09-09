@@ -1,5 +1,32 @@
 #!/usr/bin/env coffee
 
-echo = -> console.log arguments...
+peg = require 'pegjs'
+fs = require 'fs'
 
-echo 'I am z.'
+d = -> console.log '[debug]', arguments...
+l = -> console.log arguments...
+err = -> console.log '[error]', arguments...
+
+grammar = fs.readFileSync './lib/z.pegjs', 'utf8'
+
+d 'Building parser.'
+
+parser = peg.buildParser grammar
+
+compile = (filename) ->
+	try
+		contents = fs.readFileSync(filename, 'utf8')
+	catch e
+		if e.code == 'ENOENT'
+			return err "File not found: #{filename}"
+		else
+			return err e.toString()
+
+	d "Contents of file #{filename}:\n#{contents}"
+	parsed = parser.parse contents
+	d 'Parsed: ' + parsed
+
+for filename, i in process.argv
+	if i >= 2
+		compile filename
+
