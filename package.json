@@ -1,0 +1,24 @@
+{
+  "name": "z",
+  "version": "0.0.0",
+  "description": "z",
+  "main": "bin/z",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anttisykari/z.git"
+  },
+  "keywords": [
+    "z",
+    "programming language",
+    "compiler"
+  ],
+  "author": "Antti Sykäri",
+  "license": "BSD",
+  "dependencies": {
+    "coffee-script": "~1.3.3",
+    "pegjs": "~0.7.0"
+  }
+}
