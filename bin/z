@@ -1,5 +1,5 @@
 #!/usr/bin/env coffee
 
-echo = () -> console.log arguments...
+echo = -> console.log arguments...
 
-echo 'z'
+echo 'I am z.'
