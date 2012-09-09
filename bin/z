@@ -2,10 +2,7 @@
 
 peg = require 'pegjs'
 fs = require 'fs'
-
-d = -> console.log '[debug]', arguments...
-l = -> console.log arguments...
-err = -> console.log '[error]', arguments...
+{ d, l, err } = require '../lib/util'
 
 grammar = fs.readFileSync './lib/z.pegjs', 'utf8'
 
