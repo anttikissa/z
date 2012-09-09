@@ -2,13 +2,13 @@
 
 peg = require 'pegjs'
 fs = require 'fs'
-{ d, l, err } = require '../lib/util'
+{ d, l, err, time } = require '../lib/util'
 
 grammar = fs.readFileSync './lib/z.pegjs', 'utf8'
 
-d 'Building parser.'
-
-parser = peg.buildParser grammar
+parser = time 'Building parser.', ->
+	parser = peg.buildParser grammar
+	return parser
 
 compile = (filename) ->
 	try
