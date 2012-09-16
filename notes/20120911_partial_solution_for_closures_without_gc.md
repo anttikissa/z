@@ -1,0 +1,21 @@
+# A partial solution for closures without GC
+
+f() {
+	int x = 1;
+	int y = 2;
+	Big_Object o = Big_Object();
+
+	// tmp makes a promise that g won't save a reference to it anywhere
+	// here `tmp` applies to the pointer (a bit quirky syntax)
+	int g(tmp int x, tmp int y, Big_Object tmp * z) {
+		z.something();
+		return x + y;
+	}
+	
+	// Uh... think this over
+	// TODO
+	[(1, 2), (3, 4), (5, 6)].forEach(g)
+}
+
+
+
