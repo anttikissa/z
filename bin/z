@@ -5,9 +5,11 @@ fs = require 'fs'
 { d, l, err, time, getFile } = require '../lib/util'
 
 grammar = getFile './lib/z.pegjs'
+grammarOpts =
+	trackLineAndColumn: true
 
 parser = time 'Building parser.', ->
-	parser = peg.buildParser grammar
+	parser = peg.buildParser grammar, grammarOpts
 	return parser
 
 compile = (filename) ->
