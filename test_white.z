@@ -6,6 +6,11 @@
 2 + 
 
 /* /* and this one should work */
+
+1 + 
+
+/* And this one // */
+
 3 + 
 
 // Test single-line comments and whitespace characters.
