@@ -14,7 +14,8 @@ parser = time 'Building parser.', ->
 
 compile = (filename) ->
 	contents = getFile filename
-	return if !contents
+	if !contents
+		return
 
 	d "Contents of file #{filename}:\n#{contents}"
 	parsed = parser.parse contents
