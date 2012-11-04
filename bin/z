@@ -12,6 +12,9 @@ parser = time 'Building parser.', ->
 	parser = peg.buildParser grammar, grammarOpts
 	return parser
 
+evaluate = (ast) ->
+	d "eval: " + ast
+
 compile = (filename) ->
 	contents = getFile filename
 	if !contents
@@ -19,7 +22,9 @@ compile = (filename) ->
 
 	d "Contents of file #{filename}:\n#{contents}"
 	parsed = parser.parse contents
-	d 'Parsed: ' + parsed
+#	d 'Parsed: ' + parsed
+
+	evaluate parsed
 
 for filename, i in process.argv
 	if i >= 2
