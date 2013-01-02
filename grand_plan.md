@@ -43,7 +43,62 @@
 		BigType b;
 
 ## Structs and methods
-- getters and setters
+
+### Getters and setters
+
+#### For local and global variables
+
+- `foo` translates to `get_foo()`, if one exists.
+- `foo = bar` translates to `set_foo(bar)`, if one exists.
+
+#### Normal getters and setters 
+
+- `x.foo` translates to `x.get_foo()`, if one exists.
+- `x.foo = bar` translates to `x.set_foo(bar)`, if one exists.
+
+Of course, a special case must exist for the getters themselves (and possibly
+others that have access to the instance variables):
+
+	type Person {
+		int age;
+		get_age() {
+			// Here, age refers to this.age, not to get_age(), avoiding the infinite
+			// loop
+			return age;
+		}
+	}
+
+The convention of prefixing instance (or otherwise private) variables with `_`
+might work well with this rule.  We wouldn't need any special cases, since
+nobody with their sane mind would do a method called `get__foo`.  Unless they
+really needed one -- and then it would possible.
+
+#### Getters and setters with arguments
+
+- `foo(a) = bar` translates to `set_foo(a, bar)`, if one exists.
+- `x.foo(a) = bar` translates to `x.set_foo(a, bar)`, if one exists.
+
+In this case, the getter translation is not necessary.
+
+#### Getters and setters without a name
+
+Or: making array-like objects.
+
+- `foo[n]` translates to `foo.get(n)`, if one exists.
+- `foo[n] = bar` translates to `foo.set(n, bar)`, if one exists.
+
+#### This reminds me of a `with`-macro that also works with getters and setters:
+
+	with (Error.captureStackTrace = myStackTrace) {
+		// do something that calls Error.captureStackTrace()
+	}
+
+translates to 
+
+	var orig = Error.captureStackTrace;
+	Error.captureStackTrace = myStackTrace;
+	// do something that calls Error.captureStackTrace()
+	Error.captureStackTrace = orig;
 
 ## Basic types / literals
 - The usual int8-int64, float32, float64, char set
