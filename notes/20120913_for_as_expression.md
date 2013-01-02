@@ -50,7 +50,10 @@ return an int for some reason) and it would have to construct them even though
 the results are not used.
 
 The rationale for this is that unlike coffeescript, which encourages functional
-programming style, Z actually encourages imperative style, `void` functions and 
+programming style, Z actually encourages imperative style, `void` functions,
+modifying variables when it makes sense from a performance or understandability
+standpoint and doing things just out of the sheer joy of making side effects
+happen (in this case, I/O).
 
 Does this rule out being able to use the value of `if` or `switch`? For
 example:
