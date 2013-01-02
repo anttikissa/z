@@ -56,8 +56,8 @@
 - `x.foo` translates to `x.get_foo()`, if one exists.
 - `x.foo = bar` translates to `x.set_foo(bar)`, if one exists.
 
-Of course, a special case must exist for the getters themselves (and possibly
-others that have access to the instance variables):
+A special case must exist for the getters themselves (and possibly others that
+have access to the instance variables):
 
 	type Person {
 		int age;
@@ -71,7 +71,7 @@ others that have access to the instance variables):
 The convention of prefixing instance (or otherwise private) variables with `_`
 might work well with this rule.  We wouldn't need any special cases, since
 nobody with their sane mind would do a method called `get__foo`.  Unless they
-really needed one -- and then it would possible.
+really needed one &mdash; and then it would possible.
 
 #### Getters and setters with arguments
 
