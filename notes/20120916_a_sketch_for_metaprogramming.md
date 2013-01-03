@@ -26,12 +26,12 @@ conflict with anything in `something`)
 
 	macro with '(' assignment_expr(lhs, rhs) ')' stmt(body) {
 		var id = gensym('orig');
-		return `{
+		return `
 			var $id = $rhs;
 			$lhs = $rhs;
 			$body;
 			$lhs = $id;
-		};
+		`;
 	}
 
 This is one possible way to define `with`, both its syntax extension (not in too
@@ -79,7 +79,12 @@ represents something that looks like `x = y`?  Perhaps this:
 Although I'm not sure that's really a big improvement.  Perhaps in more complex
 statements.
 
-	`$type $name = $value;` = definition;
+	`$results[$index] = $expr` = a;
+
+Would work as well.  Of course all of these statements would fail in some
+manner, if the substitution was not possible.  Similar to syntax or parse errors originating from compiler. 
+
+	`$type $name = $value;` = some_definition;
 
 Then again, it might break down with more complex statements:
 
@@ -87,5 +92,40 @@ Then again, it might break down with more complex statements:
 
 How to pick out all of the different branches from $contents easily?
 
+## Equivalence of statements and expressions
 
+Grammatically, statements and expressions are different; and it's a dead end
+trying to unify them in a C-derived language.  But when writing code, we don't
+usually want to care about the difference.
+
+	var stmt = `if (this) { that() } else { something_else(); }`;
+	var expr = `printf("Hi!\n")`;
+	var result = `
+		if (debug)
+			$expr;
+		else
+			$stmt;
+	`
+
+Here, `stmt` is a statement and `expr` is an expression, but both may be used as
+a statement; the expression is converted to a `statement_expression` first.
+
+Similarly, a `statement_expression` is converted into a `statement`, even though
+this is probably less useful:
+
+	var stmt = `some_function_call(1);`;
+	var result = `if ($stmt) { success(); }`;
+
+There might be a grammar problem if this syntax (`\`` quotes both statements and
+expressions) is used. Parhaps another syntax, `\`<expr> for expressions, and 
+`{ <statement(s)> }, might do:
+
+	var stmt = `{ if (this) { that() } else { something_else(); } };
+	var expr = `printf("Hi!\n");
+	var result = `{
+		if (debug)
+			$expr;
+		else
+			$stmt;
+	};
 
