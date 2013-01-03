@@ -73,6 +73,9 @@ might work well with this rule.  We wouldn't need any special cases, since
 nobody with their sane mind would do a method called `get__foo`.  Unless they
 really needed one &mdash; and then it would possible.
 
+TODO should set_foo(bar) always return a copy of the variable in order to make
+"a = b = c" behave as expected?
+
 #### Getters and setters with arguments
 
 - `foo(a) = bar` translates to `set_foo(a, bar)`, if one exists.
