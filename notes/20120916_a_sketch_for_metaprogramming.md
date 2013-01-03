@@ -116,9 +116,11 @@ this is probably less useful:
 	var stmt = `some_function_call(1);`;
 	var result = `if ($stmt) { success(); }`;
 
-There might be a grammar problem if this syntax (`\`` quotes both statements and
-expressions) is used. Parhaps another syntax, `\`<expr> for expressions, and 
-`{ <statement(s)> }, might do:
+### TODO fix broken markdown
+
+There might be a grammar problem if this syntax (a `\`` quotes both
+statements and expressions) is used. Parhaps another syntax, `\`<expr>` for
+expressions, and `\`{ <stmt>* }` for statements, might do:
 
 	var stmt = `{ if (this) { that() } else { something_else(); } };
 	var expr = `printf("Hi!\n");
