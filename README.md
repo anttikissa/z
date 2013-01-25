@@ -1,4 +1,4 @@
-<h1>Another test</h1>
+<h1>Fictive C</h1>
 <p>A collection of ideas for a better C.
 
 </p>
