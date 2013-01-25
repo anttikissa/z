@@ -1,9 +1,10 @@
-# Fictive C
+<h1>Another test</h1>
+<p>A collection of ideas for a better C.
 
-A collection of ideas for a better C.
-
-## Prerequisites
-
-1. Install node
-2. `npm install`
+</p>
+<h2>Prerequisites</h2>
+<ol>
+<li>Install node</li>
+<li><code>npm install</code></li>
+</ol>
 
