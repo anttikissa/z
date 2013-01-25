@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-./bin/z *.z
+cd $(dirname $0)
+
+./bin/z tests/*.z
 
