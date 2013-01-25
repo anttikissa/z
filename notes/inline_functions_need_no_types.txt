@@ -1,0 +1,33 @@
+# Inline functions need no types
+
+Or, in general, don't require types where they are not needed.  This applies to
+metacode and inline functions.
+
+This is legal:
+
+	inline f(x, y) { x + y; }
+
+This is not:
+
+	f(x, y) { x + y; } // Error: non-inline function f needs type for x
+
+Leaving out the return type in the first case indicates that it needs to be
+inferred from the function body; which is not known until the function is
+called.
+
+Leaving out the return type for a non-inline function indicates that it does not
+return a value.  But if you want it to return a value and don't want to specify
+it, you can use `auto`:
+
+	auto f(String name) {
+		return name + 
+		log("Hello $name");
+	}
+
+This would be equivalent to saying `var x` instead of `<explicity type> x`.  And
+is more useful when the return type is more complicated.
+
+Sadly we can't use the same keyword since `var x` feels better (shorter) than
+`auto x` (even though C++ uses it in precisely the same meaning).  Or perhaps we
+should just use `auto`.
+

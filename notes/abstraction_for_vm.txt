@@ -1,0 +1,177 @@
+# Fictive VM
+
+The + operator is implemented as:
+
+inline int32 op_add(int32 x, int32 y) {
+	addi32(result, x, y);
+}
+
+Calling `1 + 2` (translates into `op_add(1, 2)` ensures that args are allocated
+registers, and result, too.
+
+Loading and storing data might go somethine like:
+
+// *x calls this:
+inline int32 op_dereference(int32* x) {
+	loadi32(result, x);
+}
+
+// *x = y calls this:
+inline int32 op_assign(int32* x, int y) {
+	storei32(x, y);
+}
+
+Assignment operator must be somehow special. (TODO how to make operator
+overloading of the assignment operator for bigger types?)
+
+(Could `dereference` and `assign` be just `get` and `set`?)
+
+The compilation process goes something like:
+
+1. Boil things into simple code 
+
+	f(int* x, int& y) {
+		int three = 1 + 2;
+		int z = x + *y + three;
+		*y = z + 1;
+	}
+
+	// Replace operators with function calls
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		three = op_add(1, 2);
+		z = op_add(op_add(x, dereference(y)), three);
+		op_assign(y, op_add(z, 1));
+	}
+
+	// Flatten nested function calls
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		three = op_add(1, 2);
+		int tmp1;
+		int tmp2;
+		tmp1 = op_dereference(y);
+		tmp2 = op_add(x, tmp1);
+		z = op_add(tmp2, three);
+		int tmp3;
+		tmp3 = op_add(z, 1);
+		op_assign(y, tmp3);
+	}
+
+	// Replace literal integers with variables
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		int lit1;
+		lit1 = 1;
+		int lit2;
+		lit2 = 2;
+		three = op_add(lit1, lit2);
+		int tmp1;
+		int tmp2;
+		tmp1 = op_dereference(y);
+		tmp2 = op_add(x, tmp1);
+		z = op_add(tmp2, three);
+		int tmp3;
+		int lit3;
+		lit3 = 1;
+		tmp3 = op_add(z, lit3);
+		op_assign(y, tmp3);
+	}
+
+	// Perform inlining
+	// (If at this point inline functions would produce more complex code than
+	// virtual machine instructions, we'd have to iterate more on the resulting
+	// code)
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		int lit1;
+		lit1 = 1;
+		int lit2;
+		lit2 = 2;
+		addi32(three, lit1, lit2);
+		int tmp1;
+		int tmp2;
+		loadi32(tmp1, y);
+		addi32(tmp2, x, tmp1);
+		addi32(z, tmp2, three);
+		int tmp3;
+		int lit3;
+		lit3 = 1;
+		addi32(tmp3, z, lit3);
+		storei32(y, tmp3);
+	}
+
+Loading of the literal values into registers must be implemented as virtual
+machine instructions as well, but they can't be defined in the language itself,
+unlike the other low-level operations.  So `lit1 = 1;` would likely end up being
+something like `loadi32_immediate(lit1, 1);` :
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		int lit1;
+		loadi32_immediate(lit1, 1);
+		int lit2;
+		loadi32_immediate(lit2, 2);
+		addi32(three, lit1, lit2);
+		int tmp1;
+		int tmp2;
+		loadi32(tmp1, y);
+		addi32(tmp2, x, tmp1);
+		addi32(z, tmp2, three);
+		int tmp3;
+		int lit3;
+		loadi32_immediate(lit3, 1);
+		addi32(tmp3, z, lit3);
+		storei32(y, tmp3);
+	}
+
+Now all VM instructions operate on word-size pieces and can be easily
+interpreted or compiled into machine code.
+
+Is this the best order?  It might not be.
+
+TODO How does this work with larger types? 
+
+TODO How about function calls (that aren't inlined)
+
+TODO How about labels and calling them (Just use `goto` syntax?)
+
+TODO How about references to external names, say using the address of a global
+variable 
+
+How about a different syntax to possibly make it more readable?  `=` could also
+be used, but it's better to make it explicit that these are machine instructions
+instead of higher-level code.
+
+	f(int x, int* y) {
+		int three;
+		int z;
+		int lit1;
+		lit1 <- 1;
+		int lit2;
+		lit2 <- 2;
+		three <- addi32(lit1, lit2);
+		int tmp1;
+		int tmp2;
+		tmp1 <- *y;
+		tmp2 <- addi32(x, tmp1);
+		z <- addi32(tmp2, three);
+		int tmp3;
+		int lit3;
+		lit3 <- 1;
+		tmp3 <- addi32(tmp3, z, lit3);
+		*y <- tmp3;
+	}
+
+Variable declarations might also be collected to the start of the function, but
+now it is always clear where the scope of a variable starts.
+

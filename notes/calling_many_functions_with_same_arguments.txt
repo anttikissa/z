@@ -1,0 +1,79 @@
+# Call an array like a function
+
+This
+
+	[f, g](x, y)
+
+is rewritten as:
+
+	[f(x, y), f(x, y)]
+
+Array's operator call(...) is an inline function (or perhaps it has to be a
+macro), thus if f or g returns value, doesn't bother saving them.
+
+How does this cope with methods?
+
+	[player.update, world.update](delta);
+
+We don't want this:
+
+	[2 * , 3 * ](3 + 4)
+
+since it would be insane, but the method call 
+
+Should method calls be just things that bind `this`?
+
+	type Greeter {
+		string greeting = "Hello";
+		hello(String name) {
+			log("$(this.greeting) $name");
+		}
+	}
+
+	Greeter greeter;
+	fn(String) say_hello = greeter.hello;
+
+What does that assignment do? It evaluates `greeter`, sees an object, searches
+its methods for `hello`, finds the implementation:
+
+	// In fact, `hello` could be implemented just like this, instead of putting
+	// it in inside `Greeter`.
+	hello(Greeter& this, String name) {
+		log("$(this.greeting) $name);
+	}
+
+and then does the binding:
+
+	fn(String) say_hello = hello.bind(greeter);
+
+`.bind` works like it does in JavaScript, except that `this` in our model is
+just one of the arguments.
+
+Implementing `bind` (in pseudo-code or perhaps not):
+
+Suppose Function was a type and fn(...) would denote a function with any
+arguments.  Here's `bind` with one argument:
+
+type Function {
+	fn(...) bind(first) {
+		return fn(args...) {
+			this(first, args...)
+		};
+	}
+}
+
+This assumes that we can take in arguments using the `args...` notation and
+splice them together by saying `foo, args...`.  Assuming also that we can join
+two argument sequences using `x..., y...`, we can generalize it:
+
+type Function {
+	fn(...) bind(args1...) {
+		return fn(args2...) {
+			this(args1, args2...)
+		};
+	}
+}
+
+The problem from type checking viewpoint is that the returned fn(args...) does
+not know the types of its arguments, and it's not easy to so. 
+
