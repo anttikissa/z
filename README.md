@@ -1,4 +1,6 @@
-# z
+# Fictive C
+
+A collection of ideas for a better C.
 
 ## Prerequisites
 
