@@ -23,24 +23,39 @@ struct FVM {
 	vector<byte> mem;
 	vector<byte> code;
 
+	const char* filename_opt;
+
 	uint32 pc;
 	uint32 sp;
 
-	FVM(const vector<byte>& program) {
+	FVM(const vector<byte>& code, const char* filename_opt) {
 		mem = vector<byte>(1024);
-		code = program;
+		this->code = code;
+		this->filename_opt = filename_opt;
 		sp = mem.size();
 		pc = 0;
 	}
 
 	void run() {
-		printf("Running...\n");
 		while (step()) {
 			step();
 		}
 	}
 
+	void msg(const char* msg, ...) {
+		if (filename_opt) {
+			printf("%s: ", filename_opt);
+		}
+		va_list args;
+		va_start(args, msg);
+		vprintf(msg, args);
+		va_end(args);
+	}
+
 	void fail(const char* msg, ...) {
+		if (filename_opt) {
+			printf("%s: ", filename_opt);
+		}
 		va_list args;
 		va_start(args, msg);
 		vprintf(msg, args);
@@ -54,8 +69,8 @@ struct FVM {
 			pc += 4;
 			return result;
 		} else {
-			fail("Failed to read instruction, pc %p, code size %p\n", pc, code.size());
-			return 0;
+			msg("Failed to read instruction, pc %p, code size %p\n", pc, code.size());
+			return HALT;
 		}
 	}
 
@@ -63,7 +78,8 @@ struct FVM {
 		uint32 instr = read_instr();
 
 		if (instr == HALT) {
-			printf("Halt at pc %p\n", (void*) pc);
+			msg("Halt at pc %p\n", (void*) pc);
+			return false;
 		}
 		
 		return true;
@@ -111,14 +127,13 @@ vector<byte> load(const char* filename) {
 
 int main(int argc, char* argv[]) {
 	if (argc < 2) {
-		printf("Usage: fvm <file>\n");
+		printf("Usage: fvm <files...>\n");
 		return 0;
 	}
 
 	for (int i = 1; i < argc; i++) {
 		vector<byte> program = load(argv[i]);
-
-		FVM fvm(program);
+		FVM fvm(program, argv[i]);
 		fvm.run();
 	}
 }
