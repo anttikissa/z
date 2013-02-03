@@ -1,0 +1,20 @@
+#!/bin/sh
+
+cd $(dirname $0)
+
+function ts() {
+	date -u '+%Y-%m-%d %T.%3N'
+}
+
+echo `ts` Building.
+
+gcc fvm.cpp -o fvm
+
+status=$?
+if [[ $status == 0 ]]
+then
+	echo `ts` Done.
+else
+	echo `ts` "Done. (Status $status)"
+fi
+

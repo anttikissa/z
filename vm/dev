@@ -1,0 +1,8 @@
+#!/bin/sh
+
+./build
+
+while watch-file fvm.cpp
+	do ./build
+done
+
