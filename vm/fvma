@@ -1,0 +1,34 @@
+#!/usr/bin/env coffee
+# vim:set ft=coffee:
+
+fs = require 'fs'
+
+args = process.argv.splice(2)
+if !args.length
+	console.log "Usage: fvma <files...>"
+
+
+assemble = (file, filename) ->
+	result = [Buffer('FVM0')]
+
+	for line, idx in file.trim().split('\n')
+		lineNumber = idx + 1
+
+		error = (msg) ->
+			console.log "#{filename}:#{lineNumber} " + msg
+			process.exit(1)
+
+		line = line.replace(/#.*$/, '').trim()
+		if line.length
+			[command, params] = line.split(/,?\s+/)
+			switch command
+				when 'halt' then result.push(Buffer('HALT'))
+				else error("Unknown command #{command}")
+
+	return result
+for arg in args
+	file = fs.readFileSync(arg, 'utf8')
+	result = assemble file, arg
+	outputFile = arg.replace(/(\.fvma|)$/, '.fvm')
+	console.log("outputFile #{outputFile}")
+
