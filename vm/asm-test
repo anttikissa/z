@@ -2,5 +2,16 @@
 
 cd $(dirname $0)
 
-./fvma asm-tests/*.fvma
+for test in asm-tests/*.fvma
+do
+	./fvma $test
+	outfile=`basename $test .fvma`.fvm
+	if ! diff -u tests/$outfile asm-tests/$outfile
+	then
+		echo
+		echo ERROR asm-tests/$outfile is different from tests/$outfile
+		echo
+	fi
+done
+
 

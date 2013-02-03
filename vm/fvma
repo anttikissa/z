@@ -7,7 +7,6 @@ args = process.argv.splice(2)
 if !args.length
 	console.log "Usage: fvma <files...>"
 
-
 assemble = (file, filename) ->
 	result = [Buffer('FVM0')]
 
