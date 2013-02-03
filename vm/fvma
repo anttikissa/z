@@ -25,10 +25,12 @@ assemble = (file, filename) ->
 				when 'halt' then result.push(Buffer('HALT'))
 				else error("Unknown command #{command}")
 
-	return result
+	return Buffer.concat(result)
+
 for arg in args
 	file = fs.readFileSync(arg, 'utf8')
 	result = assemble file, arg
 	outputFile = arg.replace(/(\.fvma|)$/, '.fvm')
-	console.log("outputFile #{outputFile}")
+	fs.writeFileSync(outputFile, result)
+	console.log(outputFile)
 
