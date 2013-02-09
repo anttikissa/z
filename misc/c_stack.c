@@ -28,7 +28,13 @@ typedef int int32;
 	PRINT_OFFSET(i, -3); \
 	PRINT_OFFSET(i, -4); \
 	PRINT_OFFSET(i, -5); \
+	PRINT_OFFSET(i, -5); \
 	PRINT_OFFSET(i, -6); \
+	PRINT_OFFSET(i, -7); \
+	PRINT_OFFSET(i, -8); \
+	PRINT_OFFSET(i, -9); \
+	PRINT_OFFSET(i, -10); \
+	PRINT_OFFSET(i, -11); \
  \
     asm( \
         "movq %%rsp, %0;" \
