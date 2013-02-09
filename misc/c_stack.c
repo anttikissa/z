@@ -68,11 +68,6 @@ int f(int64 i, int64 j, int64 k) {
 	int64 z = 0x1020304050607080;
 	int64 z1 = 0x1020304050607080;
 	int64 z2 = 0x1020304050607080;
-	int64 z3 = 0x1020304050607080;
-	int64 z4 = 0x1020304050607080;
-	int64 z5 = 0x1020304050607080;
-	int64 z6 = 0x1020304050607080;
-	int64 z7 = 0x1020304050607080;
 	int64 z8 = 0x1020304050607080;
 	int64 z9 = 0x1020304050607080;
 	int64 z10 = 0x1020304050607080;
@@ -81,10 +76,10 @@ int f(int64 i, int64 j, int64 k) {
 	INFO();
 
 	x = y = z;
-	return 0x87654321;
+	return 0xBEEFBEEF;
 }
 
-int main(int i, char* argv[]) {
+int main(int64 i, char* argv[]) {
 	printf("main is at %p\n", main);
 	printf("   f is at %p\n", f);
 	int x = 0x80;
@@ -93,7 +88,7 @@ int main(int i, char* argv[]) {
 	
 	int result = f(1, 2, 3);
 
-//	INFO();
+	INFO();
 	
 	int k = x + y + z;
 	return k + result;
