@@ -1,9 +1,11 @@
 #include <stdio.h>
 
-extern void * __libc_stack_end;
+typedef long long int64;
+typedef int int32;
+//typedef int32 int;
 
 #define PRINT_OFFSET(var, offset) \
-	printf("data at %p: %08x\n", &var + offset, *(&var + offset))
+	printf("data at %p: %p\n", &var + offset, (void *)*(&var + offset))
 
 #define INFO() \
 	PRINT_OFFSET(i, 13); \
@@ -24,6 +26,9 @@ extern void * __libc_stack_end;
 	PRINT_OFFSET(i, -1); \
 	PRINT_OFFSET(i, -2); \
 	PRINT_OFFSET(i, -3); \
+	PRINT_OFFSET(i, -4); \
+	PRINT_OFFSET(i, -5); \
+	PRINT_OFFSET(i, -6); \
  \
     asm( \
         "movq %%rsp, %0;" \
@@ -41,7 +46,6 @@ extern void * __libc_stack_end;
     printf("ebx is: %p\n", ebx); \
     printf("ecx is: %p\n", ecx); \
     printf("edx is: %p\n", edx); */ \
-	printf("__libc_stack_end: %p\n", __libc_stack_end); \
     printf("\n");
 
 void* esp;
@@ -51,26 +55,31 @@ void* ebx;
 void* ecx;
 void* edx;
 
-int f(int i, int j, int k) {
-	int x = 0x12345679;
+int f(int64 i, int64 j, int64 k) {
+	int64 x = 0xffff000012345679;
 	--x;
+	int64 y = 0x5050505020202020;
+	int64 z = 0x1020304050607080;
 
 	INFO();
 
+	x = y = z;
 	return 0x87654321;
 }
 
-int main(int i) {
+int main(int i, char* argv[]) {
+	printf("main is at %p\n", main);
+	printf("   f is at %p\n", f);
 	int x = 0x80;
 	int y = 0xff;
 	int z = -1;
 	
 	int result = f(1, 2, 3);
 
-	INFO();
+//	INFO();
 	
 	int k = x + y + z;
-	return k;
+	return k + result;
 
 	return 0;
 }
