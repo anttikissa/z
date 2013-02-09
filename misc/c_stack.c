@@ -61,37 +61,29 @@ void* ebx;
 void* ecx;
 void* edx;
 
-int f(int64 i, int64 j, int64 k) {
-	int64 x = 0xffff000012345679;
-	--x;
-	int64 y = 0x5050505020202020;
-	int64 z = 0x1020304050607080;
-	int64 z1 = 0x1020304050607080;
-	int64 z2 = 0x1020304050607080;
-	int64 z8 = 0x1020304050607080;
-	int64 z9 = 0x1020304050607080;
-	int64 z10 = 0x1020304050607080;
-	int64 z11 = 0x1020304050607080;
+int64 f(int64 i, int64 j, int64 k) {
+	int64 x = 0x1111111111111111;
+	int64 y = 0x2222222222222222;
+	int64 z = 0x3333333333333333;
 
 	INFO();
 
-	x = y = z;
-	return 0xBEEFBEEF;
+	x = y = z = x;
+	return 0x1111222233334444;
 }
 
 int main(int64 i, char* argv[]) {
 	printf("main is at %p\n", main);
 	printf("   f is at %p\n", f);
-	int x = 0x80;
-	int y = 0xff;
-	int z = -1;
+	int64 x = 0x1111000000000000;
+	int64 y = 0x2222000000000000;
+	int64 z = 0x3333000000000000;
 	
-	int result = f(1, 2, 3);
+	int64 result = f(1, 2, 3);
 
 	INFO();
 	
-	int k = x + y + z;
-	return k + result;
+	x = y = z = x;
 
-	return 0;
+	return result > 0;
 }
