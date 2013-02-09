@@ -8,33 +8,32 @@ typedef int int32;
 	printf("data at %p: %p\n", &var + offset, (void *)*(&var + offset))
 
 #define INFO() \
-	PRINT_OFFSET(i, 13); \
-	PRINT_OFFSET(i, 12); \
-	PRINT_OFFSET(i, 11); \
-	PRINT_OFFSET(i, 10); \
-	PRINT_OFFSET(i, 9); \
-	PRINT_OFFSET(i, 8); \
-	PRINT_OFFSET(i, 7); \
-	PRINT_OFFSET(i, 6); \
-	PRINT_OFFSET(i, 5); \
-	PRINT_OFFSET(i, 4); \
-	PRINT_OFFSET(i, 3); \
-	PRINT_OFFSET(i, 2); \
-	PRINT_OFFSET(i, 1); \
+	PRINT_OFFSET(i, -12); \
+	PRINT_OFFSET(i, -11); \
+	PRINT_OFFSET(i, -10); \
+	PRINT_OFFSET(i, -9); \
+	PRINT_OFFSET(i, -8); \
+	PRINT_OFFSET(i, -7); \
+	PRINT_OFFSET(i, -6); \
+	PRINT_OFFSET(i, -5); \
+	PRINT_OFFSET(i, -4); \
+	PRINT_OFFSET(i, -3); \
+	PRINT_OFFSET(i, -2); \
+	PRINT_OFFSET(i, -1); \
 	printf("First argument is at:\n"); \
 	PRINT_OFFSET(i, 0); \
-	PRINT_OFFSET(i, -1); \
-	PRINT_OFFSET(i, -2); \
-	PRINT_OFFSET(i, -3); \
-	PRINT_OFFSET(i, -4); \
-	PRINT_OFFSET(i, -5); \
-	PRINT_OFFSET(i, -6); \
-	PRINT_OFFSET(i, -7); \
-	PRINT_OFFSET(i, -8); \
-	PRINT_OFFSET(i, -9); \
-	PRINT_OFFSET(i, -10); \
-	PRINT_OFFSET(i, -11); \
-	PRINT_OFFSET(i, -12); \
+	PRINT_OFFSET(i, 1); \
+	PRINT_OFFSET(i, 2); \
+	PRINT_OFFSET(i, 3); \
+	PRINT_OFFSET(i, 4); \
+	PRINT_OFFSET(i, 5); \
+	PRINT_OFFSET(i, 6); \
+	PRINT_OFFSET(i, 7); \
+	PRINT_OFFSET(i, 8); \
+	PRINT_OFFSET(i, 9); \
+	PRINT_OFFSET(i, 10); \
+	PRINT_OFFSET(i, 11); \
+	PRINT_OFFSET(i, 12); \
  \
     asm( \
         "movq %%rsp, %0;" \
