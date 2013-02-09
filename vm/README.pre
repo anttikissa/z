@@ -1,0 +1,176 @@
+
+# VM documentation
+
+## Registers
+
+### Stack pointer `sp`
+
+Stack pointer starts at end of memory and points at the last value
+pushed on the stack.
+
+Here's a reference implementation of the stack:
+
+	int64 size = 1024;
+	byte mem[size];
+
+	int64* start = (int64*) &mem;
+	int64* end = (int64*) (&mem + size);
+	int64* sp = end;
+
+Push a value to stack:
+
+	if (sp == start)
+		error("stack overflow");
+	*--sp = value;
+
+Pop a value from stack:
+
+	if (sp == end)
+		error("stack underflow");
+	value = *sp++;
+
+### Program counter `pc`
+
+Program counter starts at the start of memory and points at the next
+instruction to be executed.  Instructions are 32-bit words.
+
+	int64 size = 1024;
+	byte mem[size];
+
+	int32* start = (int32*) &mem;
+	int32* end = (int32*) (&mem + size);
+	int32* pc = start;
+
+Here's a reference implementation of the instruction decoder:
+
+	while (true) {
+		// Decode instruction into [instr, arg1, arg2]
+
+		if (pc < start || pc >= end)
+			error("non-existent address");
+
+		int32 instr = *pc++;
+
+		int32 arg1, arg2;
+
+		if (twoword(instr)) {
+			if (pc < start || pc >= end)
+				error("non-existent address");
+			arg1 = *pc++;
+		}
+
+		if (threeword(instr)) {
+			if (pc < start || pc >= end)
+				error("non-existent address");
+			arg2 = *pc++;
+		}
+
+		// Execute
+
+		switch (instr) {
+			// ...
+		}
+	}
+
+Thus, when an instruction refers to `pc`, it will point to the next instruction
+following the instruction itself.  For example,
+
+	add pc, 4	// equivalent go 'goto foo;'
+	nop			// will not be executed
+foo:
+	...
+
+This code is equivalent to the one above:
+
+	set pc, foo
+	nop			// will not be executed
+foo:
+	...
+
+This code results in an infinite loop, since the instruction fits into 32 bits:
+
+	sub pc, 4
+
+## Function call 
+
+Before calling the function, the stack looks like:
+
+	position	contents
+
+				local variable 0
+				...
+				local variable n (previous sp)
+				argument n
+				...
+				argument 1
+				return address
+		  sp	previous sp
+
+During execution of the function, the stack looks like:
+
+	position	contents
+
+
+				local variable 0
+				...
+				local variable n (previous sp)
+				argument n
+				...
+				argument 1
+				return address
+				previous sp 
+				local variable 0
+				...
+		  sp	local variable n
+
+After returning from the function, the stack looks like:
+
+	position	contents
+
+				local variable 0
+				...
+		  sp	local variable n (previous sp)
+
+Assembly sequence for a function call:
+
+	// evaluate local variables arg1, arg2, arg3, and prev_sp = sp
+	// a register could be used for prev_sp as well
+	push arg3
+	push arg2
+	push arg1
+	push ret
+	push prev_sp
+	jmp f
+ret:
+	...
+
+Assembly sequence for f:
+
+f:
+	add sp, n	// allocate space for n variables
+	... 		// function body
+
+	sub sp, n	// free the allocated space
+	ret
+
+The `ret` instruction pops `sp` and `pc` from stack.
+
+Alternatively, f could be implemented as:
+
+f:
+	push xx		// push xx
+	push yy		// push yy
+	push zz		// push zz
+	...			// function body
+	sub sp, n	// free the allocated space
+	ret
+
+The guideline is that the function body should never modify `sp` in the
+function body, so that `sp`-relative locations always refer to the same local
+variable.
+
+(`ret` could also take an argument that first frees n bytes from the stack.)
+
+## Instructions
+
+...
