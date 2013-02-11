@@ -60,7 +60,7 @@ void* ebx;
 void* ecx;
 void* edx;
 
-int64 f(int64 i, int64 j, int64 k) {
+int64 f(int64 i, int64 j, int64 k, ...) {
 	int64 x = 0x1111111111111111;
 	int64 y = 0x2222222222222222;
 	int64 z = 0x3333333333333333;
@@ -78,7 +78,7 @@ int main(int64 i, char* argv[]) {
 	int64 y = 0x2222000000000000;
 	int64 z = 0x3333000000000000;
 	
-	int64 result = f(1, 2, 3);
+	int64 result = f(1, 2, 3, 0xaaaaaaaa, 0xbbbbbbbb, 0xcccccccc);
 
 	INFO();
 	
