@@ -1,0 +1,182 @@
+
+Borrow precedences mostly from `go`, which is supposed to get them right.
+(But leave out &^ for now, and use ~ as bitwise not.)
+
+## General guidelines
+
+### Operators that allow no white space between it and the operand tend to bind
+tighter than operators that allow optional white space, and they in turn bind
+more tightly than operators that require mandate white space between them and
+the operand.
+
+(Now how to express that more succinctly... Perhaps divide operators into
+categories: 'tight', 'semi-tight' and 'loose' operators?)
+
+For instance, `*x + --y` is `(*x) + (--y)` because white space is not allowed
+between `*` and `--` and its operand, and because for `+`, white space is
+optional.
+
+Similarly, `not x + y in [1, 2, 3]` is `not ((x + y) in [1, 2, 3]`, because
+`not` and `in` require white space between them and the operand(s), while `+`
+does not.
+
+### Space-separated operators tend to bind looser than operators optionally
+separated spaces, and they tend to bind looser than 
+
+`in`, `not`
+### Postfix operators tend to bind more tightly than prefix operators
+
+E.g. `*c++` is `*(c++)`, and &f[4] is `&(f[4])`.
+
+
+In descending precedence:
+
+	args   
+	       associativity (left, right, none, multi)
+	       or postfix/prefix
+	               operators
+
+	// tight operators
+	unary  postfix () [] ++ -- . ->
+	unary  prefix  ! & * ++ -- + - ~
+	// semi-tight operators
+	binary left    * / % << >> &
+	binary left    + - | ^
+	binary multi   < <= > >=
+	binary multi   == !=
+	binary left    &&
+	binary left    || ^^
+	binary right   = += -= *= /= %= <<= >>= &= ^= |= &&
+	// loose operators
+	unary  postfix in
+	unary  prefix  not
+
+## Basic arithmetic
+
+## Binary arithmeti
+
+## Multiassociativity
+
+Relational operators `== != < <= > >=` are /multiassociative/.  This means that
+the expression `a == b == c`, for example, is translated to `a == b && b == c`.
+Similarly, `start <= value < end` is roughly translated to `start <= value &&
+value < end`.  ("Roughly", because `b` and `value` are only evaluated once.)
+
+There are two levels of multiassociative operators: the equality and inequality
+operators `==` and `!=` are higher in precedence than the other relational
+operators.  This decision is made because booleans aren't usually compared with
+the `< <= > >=` operators.  This allows us avoid parentheses while expressing
+thoughts like:
+
+// are all data points vectors monotonically increasing?
+	if	x[0] < x[1] < x[2] &&
+		y[0] < y[1] < y[2] &&
+		z[0] < z[1] < z[2] {
+		...
+	}
+
+## `^^`, logical xor operator
+
+Because why not?
+
+(Of course, it cannot be short-circuited like `&&` and `||` can.  Is it a
+problem that shares precedence level with `||`?)
+
+	bool x, y, z, w = ...;
+
+	var bool = x || y ^^ z || w;
+		=>
+	(((x || y) ^^ z) || w);
+
+	if !x
+		break;
+
+
+## `not` operator
+
+`not` is the same as `!`, but at lower precedence.  Since the logical not
+operator is often used in boolean expressions and they are often used 
+It is intended to be used in
+conditional expressions:
+
+	if not i in [1, 2, 3] {
+		...
+	}
+
+# Examples
+
+	++a[10]; // ++(values[10]);
+
+	++a[10] in [1,2,3]; // (++(a[10])) in [1,2,3];
+
+whereas using `!` would have forced us to use parentheses:
+
+	if !(i in [1,2,3]) {
+		...
+	}
+
+Examples of operator precedences:
+
+	valid_instr(int32 instr) {
+		return
+			instr == 0xffff ||
+				instr & 0xff == 0x80 &&
+				instr & 0xff00 >> 16 == 0x1f;
+	}
+
+Note we avoid using parentheses in `instr & 0xff00 >> 16`, even though `&` and
+`>>` have the same precedence.  This is similar to avoiding parentheses in the
+expression 50 * 24 / 100.  Similarly, we could say `if instr >> 16 & 0x04 { ...
+}`.  
+
+But `^` and `|` are lower in precedence; so saying `instr | 0xff00 >> 16` is
+`instr | (0xff00 >> 16)`, while `instr & 0xff00 >> 16` is `(instr & 0xff00) >>
+16`.  Whether this makes sense needs to be studied more carefully (for example,
+by analyzing lots of existing C code and looking for patterns for bitwise
+operators.)
+
+## "Operators" that may not occur in expressions
+
+The tuple/array separator `,` and expression delimiter `;` are not operators per
+se, since they do not form expressions.  They still have precedence (`,` lower
+than all of the operators, and `;` lower than that.)
+
+`,` is used in variable tuple declarations, tuple expressions, and array
+expressions, it is used to separate parts of the declaration or a value.
+
+	// as part of a variable tuple declaration
+	int x, y;
+	// likewise
+	(int x, int y = 1);
+	// as part of a tuple expression
+	(int x, int y) = (x: 1, y: 2); 
+	// likewise
+	f(1, width: 100, height: 100);
+	
+	// as part of an array expression
+	int[] = [1, 2, 3];
+
+	// TODO array comprehensions
+	f(args...) {
+		[int first, int... rest] = args;
+	}
+
+`;` is used to sequence expressions.  It only occurs inside parentheses, where
+it discards everything but the last expression.  It is similar to C's `,`
+operator and only occurs inside parentheses.  
+
+	int i = (a += 2; a + b);
+
+TODO it's unclear whether `;` is even needed.  See
+http://en.wikipedia.org/wiki/Comma_operator
+
+Grammar-wise it's a bit unclear how to read expressions like
+
+	(x = foo(); (x, 2))
+
+so things might be easier withouth it.
+
+(Another open grammar question -- when we're reading a new statement, at which
+point we find out whether we're reading a parenthesized expression or a tuple
+variable declaration?  Some backtracking is probably needed.)
+

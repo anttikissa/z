@@ -1,0 +1,299 @@
+# Tuples
+
+Variables can be introduced in tuples:
+
+	// By default, repeat the type of the first argument
+	// TODO I wonder if we actually need it
+	int x, y = (1, 2);
+
+	// But it can (should?) be always specified
+	int x, int y = (1, 2);
+
+	// Different types as well
+	int x, char c = (1, 'c');
+
+	// Swap
+	(x, y) = (y, x);
+
+Or do we want to force parentheses?
+
+	(int x, char c) = (1, 'c');
+
+That would be a good idea, since function call behaves the same as tuple
+assignment:
+
+	(int x, char c = 1) = (x: 1);
+
+(A short digression: function call as tuple assignment.)
+
+	f(int x, char y = 'x', String z, int w) { ... }
+	g() {
+		f(0, z: 'foo', 1);
+	}
+
+When the function is called, the same thing happens as here:
+
+	(int x, char y = 'x', String z, int w) = (0, z: 'foo', 1);
+
+That is: "Set the current target slot to the first argument (here `x`).  Go
+through the values in source expression (here `(0, z: 'foo', 1)`), assigning
+each value to the current target slot or a matching named target slot if the
+source value has a name; set the next target slot to the slot following the slot
+which was assigned.  If we attempt to write slots beyond the last slot, or to
+more than once to some target slot, or if some slot remains unassigned, that's
+an error."
+
+So what happens here is:
+
+	int x = 0;
+	char y = 'x';
+	String z = 'foo';
+	int w = 1;
+
+In the presence of function overloading, the above rule changes to:
+
+Do this for every possible function with that name; if a unique successful
+function call can be made, do that.  Otherwise it's an error.
+
+(End digression.)
+
+Coming back to the tuple assignment, it would be unreadable to say:
+
+	int x, char c = 1 = (x: 1);
+
+or even
+
+	int x, char c = 1 = x: 1;
+
+Maybe we can only force parentheses when the allocated tuple is a /simple
+tuple/, defined as one with no default arguments.
+
+What does this boil to, then:
+
+	(int x = 1, int y = 2) = ();
+
+It would make sense to optionally leave out the right-hand side, as `int x = 1,
+int y);` would anyway translate to `int x = 1; int y;`.
+
+If it were shortened to:
+
+	(int x = 1, int y = 2);
+
+then should we allow optional parentheses as well?
+
+	int x = 1, int y = 2;
+
+Especially in places like
+
+	for (int i = 0, len = s.size(); i < len; i++) {
+		...
+	}
+
+where the first part, including the first `;`, is a variable declaration.
+
+Then the rule would be: when you introduce variables in tuples, you can omit
+parentheses if either 1) the tuple is a simple tuple, or 2) you leave out the
+right- hand side.
+
+Now there's an embarrassingly small difference between that and this:
+
+	int x = 1; int y = 2;
+
+Perhaps small enough that people will use both -- bad for "single good solution
+for anything" mantra.
+
+Ubiquitous tuples lead to strange consequences.
+
+## Can we give tuple a name?
+
+Then it would be like any other type.  In fact, one could imagine that it could
+replace the concept of types.  Perhaps not; tuples can't have member functions,
+public/private separation, constructors/destructors/assignment operators, and
+other stuff that types enjoy.
+
+	(int x, int y = 1, z = 2) values = (0, z: 1);
+
+	assert x == 0;
+	assert y == 1;
+	assert z == 1;
+	assert values.x == 0; // etc.
+
+	// or should we not introduce `x`, `y`, `z` into local scope if the tuple
+	// has a name? Similarly to:
+	// union { int x; int y; } vs.
+	// union { int x; int y; } u;
+
+Basically, it's just like a (unglorified) `struct`.
+
+But if we allow this, we'll have to consider what happens when the user tries to
+assign it, or assign to it, or pass it around.
+
+	// Values can be reassigned
+	(int x, int y = 1, z = 2) values = (0, 1, 2);
+	assert x == 0;
+	values = (z: 4, x = 2);
+	assert x == 2;
+
+	(int x, int y) others = (2, 3);
+	values = others;
+
+(Note that we must shadow `x` and `y` to be able to assign `others` to `values`.
+I wonder if that's a good idea.)
+
+This means we have to special-case the assignment of tuples.  Assigning a value
+to a tuple will normally assign the value to the first slot -- but if the source
+value is a tuple, it will assign the tuple itself.  Assigning a tuple is
+equivalent to assigning all of the values (by name) from the tuple.  The order
+is not significant.  So, `values = others` is equivalent to:
+
+	values = (x: others.x, y: others.y);
+
+In essence, tuples exist in two forms: variables and values.  Typically, tuple
+variables (like normal variables) are on the left-hand side of the assignment,
+and tuple values on the right-hand side.  A tuple value can also be passed to a
+function, where it is assigned to the implicitly generated tuple variable which
+comprises the function's formal arguments.
+
+Their differences are:
+
+* a /variable tuple/ is an extension of a variable; it consists of zero or more 
+  variables, who always have a name and optionally have a default value.
+
+('Zero or more' means compatibility with function calls, but is also means that
+these are valid, even if degenerate, variable declarations:)
+
+	() x = ();
+	() y;
+	() = ();
+	();
+
+* a /value tuple/ is an extension of an expression; it consists of zero or more
+  values, who always have a value and optionally have a name.
+
+(A better name for value tuple? Expression tuple? Tuple expression?  Should we
+just call all expressions 'values' and be done with that?  Do we need a
+separation between the grammatical /expression/ and a semantic /value/?  How
+about variable tuple, should it be tuple variable?)
+
+A variable tuple, when it occurs in an expression, is implicitly converted to a
+value tuple that contains the same values and names as the variable tuple.
+
+## Tuples inside tuples
+
+So, does this work:
+
+(int x, (int y, int z = 3)) = (x: 1, (y: 2));
+
+Why not?
+
+However, these are basically the same:
+
+(int x) = 1;
+(int x) = (x: 1);
+
+Actually, is this a tuple expression?
+
+(int x) = (1);
+
+## Other thoughts
+
+It might a bad idea to introduce the names contained by a named tuple into the
+local scope.  I can envision the need to store a tuple for multiple functions
+and then call them.
+
+Should we allow for tuple variables without names?  We could then use them to
+call functions with different signatures:
+
+	int f(int x, int y) { ... }
+	int g(int z, int foo, int x = 1) { ... }
+	int h(int... args) { ... }
+
+	main() {
+		(int, int) values = (1, 2);
+
+		f(values); // f(x: 1, y: 2);
+		g(values); // g(z: 1, y: 2, x: 1)
+		h(values); // h(1, 2);
+	}
+
+The grammar to allow all this might become complex.
+
+Is `(int, int) value = 1;` necessarily a tuple expression?  If so, then is
+`(int&) &mem[8] = 1;`  How does this work with references anyway?
+
+### Local scope and arguments as tuple
+
+The local scope could also be accessed as a tuple.  The arguments could as well.
+
+	g(int x, int y) {
+		..
+	}
+
+	h(int z, int w) {
+		...
+	}
+	
+	f(int x, int y) {
+		int z = x + 1;
+		int w = y * 2;
+		
+		assert __scope.z == z;
+		assert __scope.w == w;
+		// assert __scope.__scope == __scope; // WHOAH, maybe not
+
+		// Assign arguments by name to g()
+		g(__args);
+
+		// Assign arguments by position to h()
+		h(__pos_args);
+	}
+
+### Passing tuples to macros
+
+We should be able to inspect tuples using compile-time metaprogramming:
+
+	int x = 1;
+	int y = 2;
+
+	// Very very hypothetical syntax
+	for <name, value in __scope> {
+		log(name + ": " + value);
+	}
+
+		=>
+
+	log("x" + ": " + x);
+	log("y" + ": " + y);
+
+Suppose you could use __caller.__args in inline functions; then you could also
+do things like:
+	
+	inline print_args() {
+		String[] result;
+		for <name, value in __caller.__args> {
+			if (name) {
+				result.push(name + ": " + value);
+			} else {
+				result.push(value);
+			}
+		}
+
+		log result.join(", ");
+	}
+
+to inspect the current function arguments.
+
+Or to make JavaScript-like object using function calls (`String`s only, for
+simplicity):
+
+	Set<String, String> make_set(...) {
+		Set<String, String> result;
+		for <name, value in __args> {
+			result[name] = value;
+		}
+	}
+
+	Set<String, String> set = make_set(name: 'Joe', age: '10');
+
+I'm not sure if that would make sense, though.
+
