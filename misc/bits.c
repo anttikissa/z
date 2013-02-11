@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
 			printf("Usage: unbits (binary value)\n");
 			printf("Example: 0010100110010010\n");
 		} else {
-			printf("Usage: bits (integer value | hex value)>\n");
+			printf("Usage: bits (integer value | hex value)\n");
 			printf("Example: bits 1234\n");
 			printf("Example: bits 0xffff\n");
 
@@ -39,6 +39,9 @@ int main(int argc, char* argv[]) {
 		int i;
 		for (i = 31; i >= 0; i--) {
 			printf("%d", !!(val & (1 << i)));
+			if (i % 4 == 0) {
+				printf(" ");
+			}
 		}
 		printf("\n");
 	}
