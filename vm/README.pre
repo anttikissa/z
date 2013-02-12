@@ -104,7 +104,7 @@ Before calling the function, the stack looks like:
 				...
 				argument 1
 				return address
-		  sp	previous sp
+	sp			previous sp
 
 During execution of the function, the stack looks like:
 
@@ -121,7 +121,7 @@ During execution of the function, the stack looks like:
 				previous sp 
 				local variable 0
 				...
-		  sp	local variable n
+	sp			local variable n
 
 After returning from the function, the stack looks like:
 
@@ -129,7 +129,7 @@ After returning from the function, the stack looks like:
 
 				local variable 0
 				...
-		  sp	local variable n (previous sp)
+	sp			local variable n (previous sp)
 
 Assembly sequence for a function call:
 
@@ -173,4 +173,101 @@ variable.
 
 ## Instructions
 
-...
+In addition, instructions may contain up to two /long arguments/.  They take 32
+bits each 
+
+instruction contains a prefix, 
+
+### with 0 arguments
+
+* HALT - stop execution
+* NOP  - do nothing
+
+### with 1 argument
+
+* PUSx - push argument denoted by x to stack
+* POPx - pop value from stack and place it into `x`
+
+### with 2 arguments
+
+* MVxy
+* 
+
+* LOAx, 
+
+32 opcodes should be enough.
+
+Opcode format:
+
+	bits 0..4   (values 0-31)    opcode 
+	bits 5..7   (values 0-15)    width
+	bits 8..15  (values 0..255)  target (optional)
+	bits 16..23 (values 0..255)  argument 1
+	bits 24..31 (values 0..255)  argument 2
+
+	uint32 instr = get_instr();
+	uint8 int opcode = instr & 0x1f;
+	uint8 width = instr >> 5 & 0x07;
+	uint8 target = instr >> 8 & 0xff;
+	uint8 arg1 = instr >> 16 & 0xff;
+	uint8 arg2 = instr >> 24 & 0xff;
+
+Width is:
+
+0	byte
+1	2 bytes
+2	4 bytes
+3	8 bytes
+4-7	reserved
+
+The ASCII representation for the most common opcodes, together with the bit
+width, happens to be 'A'-'U' when they operate on 4-byte words, and 'a'-'u' when
+they operate on 8-byte words.
+
+Opcodes:
+
+
+	opcode
+			index
+
+				representation (1-byte)
+					(2-byte)
+						(4-byte)
+							(8-byte)
+				
+	hlt		0	^@	' '	'@'	'`'
+	set		1	^A	'!'	'A'	'a'
+	add		2	^B	'"'	'B'	'b'
+	sub		3	^C	'#'	'C'	'c'
+	mul 	4	^D	'$'	'D'	'd'
+	muls	5	^E	'%'	'E'	'e'
+	div		6	^F	'&'	'F'	'f'
+	divs	7	^G	'''	'G'	'g'
+	shr		8	^H	'('	'H'	'h'
+	asr		9	^I	')'	'I'	'i'
+	shl		a	^J	'*'	'J'	'j'
+	and		b	^K	'+'	'K'	'k'
+	or		c	^L	','	'L'	'l'
+	xor		d	^M	'-'	'M'	'm'
+	not		e	^N	'.'	'N'	'n'
+	lt		f	^O	'/'	'O'	'o'
+	gt		10	^P	'0'	'P'	'p'
+	ge		12	^Q	'1'	'Q'	'q'
+	le		13	^R	'2'	'R'	'r'
+	eq		14	^S	'3'	'S'	's'
+	neq		15	^T	'4'	'T'	't'
+	if		16	^U	'5' 'U' 'u'
+
+Source/target values:
+
+0..31: variables at locations (width * i)
+32..63: immediate values (so that value 48, ascii '0', is 0)
+64..125: local variables at locations (width * i)
+126: sp
+127: pc
+
+Maybe we need a frame pointer after all to address variables.
+
+Perhaps make immediates span the values [-16..16] if we can pinch one off
+somewhere.
+
