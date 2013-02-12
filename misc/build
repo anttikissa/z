@@ -2,4 +2,5 @@
 
 gcc -g -Wall c_stack.c -o c_stack
 gcc -Wall bits.c -o bits
-# ln -sf bits unbits
+gcc -Wall ascii.c -o ascii
+ln -sf bits unbits
