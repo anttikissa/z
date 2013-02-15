@@ -5,4 +5,5 @@ int main() {
 	for (i = 0; i < 128; i++) {
 		printf("%04d %02x '%c'\n", i, i, (char) i);
 	}
+	return 0;
 }
