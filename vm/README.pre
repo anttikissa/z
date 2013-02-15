@@ -3,31 +3,9 @@
 
 ## Registers
 
-### Stack pointer `sp`
-
-Stack pointer starts at end of memory and points at the last value
-pushed on the stack.
-
-Here's a reference implementation of the stack:
-
-	int64 size = 1024;
-	byte mem[size];
-
-	int64* start = (int64*) &mem;
-	int64* end = (int64*) (&mem + size);
-	int64* sp = end;
-
-Push a value to stack:
-
-	if (sp == start)
-		error("stack overflow");
-	*--sp = value;
-
-Pop a value from stack:
-
-	if (sp == end)
-		error("stack underflow");
-	value = *sp++;
+Fictive VM comes with three registers: `sp`, `pc` and `fp`.  There are no
+general-purpose registers.  `pc` is required to execute code; `sp` is required
+to store state; `fp` is used to access local variables and function arguments.
 
 ### Program counter `pc`
 
@@ -91,119 +69,168 @@ This code results in an infinite loop, since the instruction fits into 32 bits:
 
 	sub pc, 4
 
-## Function call 
+### Stack pointer `sp`
 
-Before calling the function, the stack looks like:
+Stack pointer starts at end of memory and points at the last value
+pushed on the stack.
 
-	position	contents
+Here's a reference implementation of the stack:
 
-				local variable 0
-				...
-				local variable n (previous sp)
-				argument n
-				...
-				argument 1
-				return address
-	sp			previous sp
+	int64 size = 1024;
+	byte mem[size];
 
-During execution of the function, the stack looks like:
+	int64* start = (int64*) &mem;
+	int64* end = (int64*) (&mem + size);
+	int64* sp = end;
 
-	position	contents
+Push a value to stack:
 
+	if (sp == start)
+		error("stack overflow");
+	*--sp = value;
 
-				local variable 0
-				...
-				local variable n (previous sp)
-				argument n
-				...
-				argument 1
-				return address
-				previous sp 
-				local variable 0
-				...
-	sp			local variable n
+Pop a value from stack:
 
-After returning from the function, the stack looks like:
+	if (sp == end)
+		error("stack underflow");
+	value = *sp++;
 
-	position	contents
+### Frame pointer `fp`
 
-				local variable 0
-				...
-	sp			local variable n (previous sp)
+`fp` stores the address of the current frame pointer.
 
-Assembly sequence for a function call:
+## Function call sequence
 
-	// evaluate local variables arg1, arg2, arg3, and prev_sp = sp
-	// a register could be used for prev_sp as well
-	push arg3
-	push arg2
-	push arg1
-	push ret
-	push prev_sp
-	jmp f
-ret:
-	...
+The function call sequence is similar to `cdecl` call sequence on the x86 and
+x86-64 architectures.
 
-Assembly sequence for f:
+Here's the stack before calling a function:
 
-f:
-	add sp, n	// allocate space for n variables
-	... 		// function body
+	fp		old fp
+			var1
+	sp		var2
 
-	sub sp, n	// free the allocated space
-	ret
+1. The caller pushes the arguments from right to left.
 
-The `ret` instruction pops `sp` and `pc` from stack.
+	caller:
+		...
+		push arg2
+		push arg1
 
-Alternatively, f could be implemented as:
+Stack:
 
-f:
-	push xx		// push xx
-	push yy		// push yy
-	push zz		// push zz
-	...			// function body
-	sub sp, n	// free the allocated space
-	ret
+	fp		old fp
+			var1
+			var2
+			arg2
+	sp		arg1
 
-The guideline is that the function body should never modify `sp` in the
-function body, so that `sp`-relative locations always refer to the same local
-variable.
+2. The caller saves the return value (at that point, pc+4).
 
-(`ret` could also take an argument that first frees n bytes from the stack.)
+		add stack, pc, 4
+
+Stack:
+
+	fp		old fp
+			var1
+			var2
+			arg2
+			arg1
+	sp		return address
+
+3. The caller jumps to the function.
+
+		mov pc, f
+
+4. The callee saves the fp:
+
+	f:
+		mov stack, fp
+		mov fp, sp
+
+Stack:
+
+	old fp	older fp
+			var1
+			var2
+			arg2
+			arg1
+			return address
+	fp	sp	old fp
+
+5. The callee allocates stack space for its own usage:
+
+	f:
+		...
+		sub 24
+	
+	old fp	older fp
+			var1
+			var2
+			arg2
+			arg1
+			ret
+	fp		old fp
+			var1
+			var2
+	sp		var3
+
+6. The callee executes, and before returning deallocates its stack:
+
+	f:
+		...
+		mov sp, fp
+
+	old fp	older fp
+			var1
+			var2
+			arg2
+			arg1
+			ret
+	fp	sp	old fp
+
+7. The callee pops the old fp from stack:
+
+	mov fp, stack
+
+	fp		older fp
+			var1
+			var2
+			arg2
+			arg1
+	sp		ret
+
+8. The callee jumps to the return address:
+
+	pop pc
+
+	fp		old fp
+			var1
+			var2
+			arg2
+	sp		arg1
+
+9. The caller cleans up the arguments:
+
+	add sp, sp, 8
+
+Now the stack is like before calling the function.
+
+	fp		old fp
+			var1
+	sp		var2
 
 ## Instructions
 
-In addition, instructions may contain up to two /long arguments/.  They take 32
-bits each 
-
-instruction contains a prefix, 
-
-### with 0 arguments
-
-* HALT - stop execution
-* NOP  - do nothing
-
-### with 1 argument
-
-* PUSx - push argument denoted by x to stack
-* POPx - pop value from stack and place it into `x`
-
-### with 2 arguments
-
-* MVxy
-* 
-
-* LOAx, 
-
 32 opcodes should be enough.
+
+TODO fit floating point opcodes somewhere
 
 Opcode format:
 
-	bits 0..4   (values 0-31)    opcode 
-	bits 5..7   (values 0-15)    width
-	bits 8..15  (values 0..255)  target (optional)
-	bits 16..23 (values 0..255)  argument 1
-	bits 24..31 (values 0..255)  argument 2
+	bits 0..5   (values 0-63)    opcode 
+	bits 6..7   (values 0-3)     width
+	bits 8..31  (values 0..255)  arguments
 
 	uint32 instr = get_instr();
 	uint8 int opcode = instr & 0x1f;
@@ -214,76 +241,236 @@ Opcode format:
 
 Width is:
 
-0	byte
-1	2 bytes
-2	4 bytes
-3	8 bytes
-4-7	reserved
+	00	byte
+	01	2 bytes
+	10	4 bytes
+	11	8 bytes
 
-The ASCII representation for the most common opcodes, together with the bit
-width, happens to be 'A'-'U' when they operate on 4-byte words, and 'a'-'u' when
-they operate on 8-byte words.
+Opcode (bits 0..5) is:
 
-Opcodes:
+aabbbb
 
-	opcode
-			index
+00aaa - 
+aa is the number of arguments
 
-				representation (1-byte)
-					(2-byte)
-						(4-byte)
-							(8-byte)
-				
-	halt	0	^@	' '	'@'	'`'		stop execution
-	set		1	^A	'!'	'A'	'a'		set target to arg1
-	load	2	^B	'"'	'B'	'b'		read target from memory location arg1
-	store	3	^C	'#'	'C'	'c'		store arg1 to memory location at target
-	push	4	^D	'$'	'D'	'd'		set [--sp] to arg1
-	pop		5	^E	'%'	'E'	'e'		set target to [sp++]
-	add		6	^F	'&'	'F'	'f'		set target to arg1 + arg2
-	sub		7	^G	'''	'G'	'g'		set target to arg1 - arg2
-	mul 	8	^H	'('	'H'	'h'		set target to arg1 * arg2
-	muls	9	^I	')'	'I'	'i'		set target to arg1 * arg2 (signed)
-	div		a	^J	'*'	'J'	'j'		set target to arg1 / arg2
-	divs	b	^K	'+'	'K'	'k'		set target to arg1 / arg2 (signed)
-	mod		c	^L	','	'L'	'l'		set target to arg1 % arg2
-	shr		d	^M	'-'	'M'	'm'		set target to arg1 >> arg2 (logical)
-	asr		e	^N	'.'	'N'	'n'		set target to arg1 >> arg2 (arithmetic)
-	shl		f	^O	'/'	'O'	'o'		set target to arg1 << arg2
-	and		10	^P	'0'	'P'	'p'		set target to arg1 & arg2
-	or		12	^Q	'1'	'Q'	'q'		set target to arg1 | arg2
-	xor		13	^R	'2'	'R'	'r'		set target to arg1 ^ arg2
-	not		14	^S	'3'	'S'	's'		set target to ~arg
-	lt		15	^T	'4'	'T'	't'		set target to arg1 < arg2
-	gt		16	^U	'5' 'U' 'u'		set target to arg1 > arg2
-	le		17	^V	'6' 'V' 'v'		set target to arg1 <= arg2
-	ge		18                      set target to arg2 >= arg2
-	eq		19                      set target to arg1 == arg2
-	neq	                            set target to arg1 != arg2
-	if	                            skip next instruction if arg1 == 0
+#00 - 0 arguments
+#01 - 1 argument
+#10 - 2 arguments
+#11 - 3 arguments
 
-	// call needed?
+1-argument opcodes take one 24-bit argument:
 
-To perform a nop, use add x, x, 0
-To perform a jump, use 
+	argument	bits
 
-TODO make it so that accessing variables and arguments are done by the same
-addressing mode, highest bits == index of var/arg and lowest 3 bits ==
-instruction width (000 = 8 bytes)... but then again, this doesn't work. 
+	arg			8..31
+
+2-argument opcodes take two 12-bit arguments.  The first argument is the subject
+of the instruction (i.e. it is modified by the second argument).
+
+	argument	bits
+
+	arg1		8..19
+	arg2		20..31
+
+3-argument opcodes take three 8-bit arguments. The first argument is always the
+target of the instruction.  `target`:
+
+	argument	bits
+
+	target		8..15
+	arg1		16..23
+	arg2		24..31
+
+Longer bit length simply means that larger immediate values can be used.  The
+type of argument is determined by its two highest bits:
+
+	00 - frame pointer addressed memory location (argument or a variable)
+	01 - immediate value
+	10 - large immediate value 
+	11 - special
+
+Prefix 00, frame pointer addressed memory locations:
+
+	00aa aaaa                       # fp + [-32..31]
+	00aa aaaa aaaa                  # fp + [-512..511]
+	00aa aaaa aaaa aaaa aaaa aaaa   # fp + [-2097152..2097151]
+
+Prefix 01, immediate values:
+
+	01aa aaaa                       # -32..31
+	01aa aaaa aaaa                  # -512..511
+	01aa aaaa aaaa aaaa aaaa aaaa   # -2097152..2097151
+
+Prefix 10, large immediate value:
+
+Large 4-byte immediate value:
+
+	0100 0000
+	0100 0000 0000
+	0100 0000 0000 0000 0000 0000
+
+Large 8-byte immediate value:
+
+	0100 0001
+	0100 0000 0001
+	0100 0000 0000 0000 0000 0001
+
+The values of the large immediates follow the instruction in the same order as
+the arguments are specified for the opcode. For example, the following code:
+
+	int x;
+	x = 0x12345678 + 0x98765432;
+
+results in an opcode `add x, 0x12345678, 0x98765432` where `x` is a frame
+pointer relative location, and arguments are large immediates; 0x12345678 comes
+first after the instruction, and 0x98765432 comes next.  The instruction is 12
+bytes long.
+
+Writing to immediate values (large or small) is forbidden.
+
+Prefix 11, special:
+
+	11aa aaaa
+	11aa aaaa aaaa
+	11aa aaaa aaaa aaaa aaaa aaaa
+
+`a` is one of the following:
+
+	00 0000	register 0 (pc)
+	00 0001	register 1 (sp)
+	00 0002	register 2 (fp)
+	01 0000 stack
+	10 xxxx reserved
+	11 xxxx reserved
+
+`stack` is a special location: reading from it pops values from stack, and
+writing to it pushes values to stack.  The pushes and pops happen in the order
+that the reads and writes happen.  So `sub stack, stack, stack` pops the first
+argument from stack, then the second argument, calculates `first - second`, and
+pushes the result to the stack.  
+
+TODO what do two-argument instructions do?  add stack, 
+
+TODO what does `store` do in case of `store stack, stack`?
+
+TODO where is no sp-relative memory accesses.  Should there be?
+
+## Instructions
+
+Instructions take 6 bits and are divided into 8 groups.
+
+The instructions in groups 0 and 1 take 0 and 1 argument, respectively; groups
+2, 4 and 6 take 2 arguments and 3, 5 and 7 take 3 arguments.  The instructions
+that take 2 arguments generally modify their first arguments, which is usually
+named `target`.  The sole exception is `store`, which stores its argument into
+the memory address specified by the first argument, without modifying its first
+argument.
 
 
-Source/target values:
+Instruction group 000: zero-argument instructions
 
-0..31: variables at locations (width * i)
-32..63: immediate values (so that value 48, ascii '0', is 0)
-64..125: local variables at locations (width * i)
-126: sp
-127: pc
-4-byte immediate: value of next 4 bytes
-8-byte immediate: value of next 8 bytes
+	instr	arguments
 
-Maybe we need a frame pointer after all to address variables.
+	halt	0
+	brk		0
+	ret		0
 
-Perhaps make immediates span the values [-16..16] if we can pinch one off
-somewhere.
+000000 .. 000010
+
+
+Instruction group 001: one-argument instructions 
+
+	exit	1	exit code
+	if	 	1	skip next instruction if nonzero
+	call	1	address
+
+001000 .. 001010
+
+
+Instruction group 010: memory operations (2 arguments)
+
+	mov		2	target, source
+	load	2	target, address
+	store	2	address, source
+
+010000 .. 010010
+
+
+Instruction group 011: relational operators (3 arguments)
+
+	lt		3	target, arg1, arg2
+	gt		3	target, arg1, arg2
+	le		3	target, arg1, arg2
+	ge	 	3	target, arg1, arg2
+	eq	 	3	target, arg1, arg2
+	neq	 	3	target, arg1, arg2
+
+011000 .. 011101
+
+
+Instruction group 100: integer arithmetic (2 arguments)
+
+100000 .. 100110
+
+	add		2	target, arg
+	sub		2	target, arg
+	mul		2	target, arg
+	muls    2	target, arg
+	div		2	target, arg
+	divs	2	target, arg
+	mod		2	target, arg
+	# still room for remainder
+
+
+Instruction group 101: integer arithmetic (3 arguments)
+
+101000 .. 101110
+
+	add		3	target, arg1, arg2
+	sub		3	target, arg1, arg2
+	mul		3	target, arg1, arg2
+	muls    3	target, arg1, arg2
+	div		3	target, arg1, arg2
+	divs	3	target, arg1, arg2
+	mod		3	target, arg1, arg2
+	# still room for remainder
+
+
+Instruction group 110: binary arithmetic (2 arguments)
+
+110000 .. 110101
+
+	shr		2	target, arg
+	asr		2	target, arg
+	shl		2	target, arg
+	and		2	target, arg
+	or		2	target, arg
+	xor		2	target, arg
+
+
+Instruction group 111: binary arithmetic (3 arguments)
+
+111000 .. 111101
+
+	shr		3	target, arg1, arg2
+	asr		3	target, arg1, arg2
+	shl		3	target, arg1, arg2
+	and		3	target, arg1, arg2
+	or		3	target, arg1, arg2
+	xor		3	target, arg1, arg2
+
+
+
+## Omitted opcodes
+
+Some traditional opcodes are left out since they can be implemented otherwise:
+
+* binary not (use `xor target, target, 0` instead)
+* branching and jumping (use `add pc, <offset>` or `mov pc, <address>`)
+* conditional branches or jumps (use `if` followed `add pc, <offset>`)
+* push and pop (mov `stack, <data>`)
+
+## Floating point
+
+TODO
 
