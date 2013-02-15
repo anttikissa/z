@@ -2,3 +2,4 @@ ascii
 bits
 c_stack
 unbits
+*.DSYM/
