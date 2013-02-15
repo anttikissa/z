@@ -18,6 +18,11 @@ typedef unsigned char byte;
 
 // 'HALT' in little endian
 const uint32 HALT = 0x544c4148;
+const uint32 NOP  = 0x20504f4e;
+
+// One argument
+const uint32 PUSx = 0x00535550;
+const uint32 POPx = 0x00504f50;
 
 struct FVM {
 	vector<byte> mem;
@@ -80,7 +85,10 @@ struct FVM {
 		if (instr == HALT) {
 			msg("Halt at pc %p\n", (void*) pc);
 			return false;
+		} else {
+			fail("Unknown instruction %08x\n", instr);
 		}
+
 		
 		return true;
 	}

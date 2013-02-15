@@ -226,7 +226,6 @@ they operate on 8-byte words.
 
 Opcodes:
 
-
 	opcode
 			index
 
@@ -235,28 +234,43 @@ Opcodes:
 						(4-byte)
 							(8-byte)
 				
-	hlt		0	^@	' '	'@'	'`'
-	set		1	^A	'!'	'A'	'a'
-	add		2	^B	'"'	'B'	'b'
-	sub		3	^C	'#'	'C'	'c'
-	mul 	4	^D	'$'	'D'	'd'
-	muls	5	^E	'%'	'E'	'e'
-	div		6	^F	'&'	'F'	'f'
-	divs	7	^G	'''	'G'	'g'
-	shr		8	^H	'('	'H'	'h'
-	asr		9	^I	')'	'I'	'i'
-	shl		a	^J	'*'	'J'	'j'
-	and		b	^K	'+'	'K'	'k'
-	or		c	^L	','	'L'	'l'
-	xor		d	^M	'-'	'M'	'm'
-	not		e	^N	'.'	'N'	'n'
-	lt		f	^O	'/'	'O'	'o'
-	gt		10	^P	'0'	'P'	'p'
-	ge		12	^Q	'1'	'Q'	'q'
-	le		13	^R	'2'	'R'	'r'
-	eq		14	^S	'3'	'S'	's'
-	neq		15	^T	'4'	'T'	't'
-	if		16	^U	'5' 'U' 'u'
+	halt	0	^@	' '	'@'	'`'		stop execution
+	set		1	^A	'!'	'A'	'a'		set target to arg1
+	load	2	^B	'"'	'B'	'b'		read target from memory location arg1
+	store	3	^C	'#'	'C'	'c'		store arg1 to memory location at target
+	push	4	^D	'$'	'D'	'd'		set [--sp] to arg1
+	pop		5	^E	'%'	'E'	'e'		set target to [sp++]
+	add		6	^F	'&'	'F'	'f'		set target to arg1 + arg2
+	sub		7	^G	'''	'G'	'g'		set target to arg1 - arg2
+	mul 	8	^H	'('	'H'	'h'		set target to arg1 * arg2
+	muls	9	^I	')'	'I'	'i'		set target to arg1 * arg2 (signed)
+	div		a	^J	'*'	'J'	'j'		set target to arg1 / arg2
+	divs	b	^K	'+'	'K'	'k'		set target to arg1 / arg2 (signed)
+	mod		c	^L	','	'L'	'l'		set target to arg1 % arg2
+	shr		d	^M	'-'	'M'	'm'		set target to arg1 >> arg2 (logical)
+	asr		e	^N	'.'	'N'	'n'		set target to arg1 >> arg2 (arithmetic)
+	shl		f	^O	'/'	'O'	'o'		set target to arg1 << arg2
+	and		10	^P	'0'	'P'	'p'		set target to arg1 & arg2
+	or		12	^Q	'1'	'Q'	'q'		set target to arg1 | arg2
+	xor		13	^R	'2'	'R'	'r'		set target to arg1 ^ arg2
+	not		14	^S	'3'	'S'	's'		set target to ~arg
+	lt		15	^T	'4'	'T'	't'		set target to arg1 < arg2
+	gt		16	^U	'5' 'U' 'u'		set target to arg1 > arg2
+	le		17	^V	'6' 'V' 'v'		set target to arg1 <= arg2
+	ge		18                      set target to arg2 >= arg2
+	eq		19                      set target to arg1 == arg2
+	neq	                            set target to arg1 != arg2
+	if	                            skip next instruction if arg1 == 0
+
+	// call needed?
+
+To perform a nop, use add x, x, 0
+To perform a jump, use 
+
+TODO make it so that accessing variables and arguments are done by the same
+addressing mode, highest bits == index of var/arg and lowest 3 bits ==
+instruction width (000 = 8 bytes)... but then again, this doesn't work. 
+
 
 Source/target values:
 
@@ -265,6 +279,8 @@ Source/target values:
 64..125: local variables at locations (width * i)
 126: sp
 127: pc
+4-byte immediate: value of next 4 bytes
+8-byte immediate: value of next 8 bytes
 
 Maybe we need a frame pointer after all to address variables.
 
