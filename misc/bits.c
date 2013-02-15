@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
 	if (unbits) {
 		char c, *arg = argv[1];
 		while ((c = *arg++)) {
+			if (c == '_') continue;
 			if (c != '0' && c != '1')
 				return printf("Invalid input value '%c' at %ld\n", c, arg-argv[1]);
 			val = (val << 1) | (c == '1');
