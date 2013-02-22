@@ -2,24 +2,24 @@
 
 The + operator is implemented as:
 
-inline int32 op_add(int32 x, int32 y) {
-	addi32(result, x, y);
-}
+	inline int32 op_add(int32 x, int32 y) {
+		addi32(result, x, y);
+	}
 
 Calling `1 + 2` (translates into `op_add(1, 2)` ensures that args are allocated
 registers, and result, too.
 
 Loading and storing data might go somethine like:
 
-// *x calls this:
-inline int32 op_dereference(int32* x) {
-	loadi32(result, x);
-}
+	// *x calls this:
+	inline int32 op_dereference(int32* x) {
+		loadi32(result, x);
+	}
 
-// *x = y calls this:
-inline int32 op_assign(int32* x, int y) {
-	storei32(x, y);
-}
+	// *x = y calls this:
+	inline int32 op_assign(int32* x, int y) {
+		storei32(x, y);
+	}
 
 Assignment operator must be somehow special. (TODO how to make operator
 overloading of the assignment operator for bigger types?)
@@ -174,4 +174,240 @@ instead of higher-level code.
 
 Variable declarations might also be collected to the start of the function, but
 now it is always clear where the scope of a variable starts.
+
+
+
+## How about function calls, then?
+
+### Return values
+
+It would be "natural" for functions to return a value in the stack.
+
+...
+arg2
+arg1
+
+In a sense, function would consume arguments 1..n from stack and replace them
+with something else.
+
+Then things like f(g(1, 2), 3) would translate into
+
+	evaluate g(1, 2) and push into stack
+	evaluate 3 and push into stack
+	call f
+
+How would that work?
+
+Before calling f, we'd have:
+
+	fp	...
+		arg1	# contents of g(1, 2)
+	sp	arg2	# 3
+
+`call f` would:
+
+	push return address
+	push current frame pointer 
+	set fp = sp
+	pc = f
+
+Now stack:
+
+		arg1
+		arg2
+		return address
+fp	sp	old fp
+
+`f` does what it does, pushing stuff and popping as it wishes, but always using
+fp to refer to its local variables.
+
+Returning from the function:
+
+	fp[24] = return value // overwrite 'arg1'
+	ret 8
+
+`ret` then pops fp from stack, pc from stack, and frees 8 bytes from the stack
+(enough to leave the return value, which overwrote arg1)
+
+This assumes that function always knows how many arguments it receives. 
+
+How would we assign to the return value in the middle of the function execution?
+
+For this
+
+	int x = f(123, 234);
+
+the call sequence would look like:
+
+	push 0 // default value for the result
+	push 123 // arg1
+	push 234
+	call f
+
+f would simply know that its return value is at fp[32] (fp[0] = old fp, fp[1] =
+old pc, fp[2] = arg2, fp[3] = arg3
+
+Let's see how this goes recursively:
+
+	int add(int a, int b) {
+		return a + b;
+	}
+
+	int mul(int a, int b) {
+		return a * b;
+	}
+
+	print(int i) { ... }
+
+	main() {
+		int x = mul(add(1, 2), add(3, 4));
+		print(x);
+	}
+
+=>
+	// Split variable declarations with values into
+	// declaration and initialization
+	main() {
+		int x;
+		x = mul(add(1, 2), add(3, 4));
+		print(x);
+	}
+
+=>
+	// Make function return values into a temporary values
+	main() {
+		int x;
+		tmp int ret1;
+		ret1 = mul(add(1, 2), add(3, 4));
+		x = ret1;
+	}
+
+	// Make function arguments into temporary values
+	main() {
+		int x;
+		tmp int ret1;
+		tmp int arg1;
+		arg1 = add(1, 2);
+		tmp int arg2;
+		arg2 = add(3, 4);
+		ret1 = mul(arg1, arg2);
+		x = ret1;
+	}
+
+	// Do this until all function calls take temporary values and their return
+	// values are assigned into temporary values
+	main() {
+		int x;
+		tmp int ret1;
+		tmp int arg1;
+		tmp int add1_arg1;
+		add1_arg1 = 1;
+		tmp int add1_arg2;
+		add1_arg2 = 2;
+		arg1 = add(add1_arg1, add1_arg2);
+		tmp int arg2;
+		tmp int add2_arg1;
+		add2_arg2 = 3;
+		tmp int add2_arg2;
+		add2_arg2 = 4;
+		arg2 = add(add2_arg1, add2_arg2);
+		ret1 = mul(arg1, arg2);
+		x = ret1;
+	}
+	// (We could have left things like `tmp int add1_arg1 = 1` in there, which
+	// could be converted directly into 'push 1'; but didn't for simplicity)
+
+=>
+
+	// Convert variable declarations into pushes:
+	main() {
+		push 0; // int x
+		push 0; // tmp int ret1;
+		push 0; // tmp int arg1;
+		push 0; // tmp int add1_arg1;
+		add1_arg1 = 1;
+		push 0; // tmp int add1_arg2;
+		add1_arg2 = 2;
+		arg1 = add(add1_arg1, add1_arg2);
+		push 0; // tmp int arg2;
+		push 0; // tmp int add2_arg1;
+		add2_arg2 = 3;
+		push 0; // tmp int add2_arg2;
+		add2_arg2 = 4;
+		arg2 = add(add2_arg1, add2_arg2);
+		ret1 = mul(arg1, arg2);
+		x = ret1;
+	}
+
+=> 
+
+	// Convert assignments into local variables into movs:
+	// and somehow arrange that the function return value is popped from the
+	// stack when it is used, unless it's used for a temporary value in order to
+	// call a new function
+	main() {
+		push 0; // int x
+		push 0; // tmp int ret1;
+		push 0; // tmp int arg1;
+		push 0; // tmp int add1_arg1;
+		mov [sp], 1 // add1_arg1 = 1;
+		push 0; // tmp int add1_arg2;
+		mov [sp], 2 // add1_arg2 = 2;
+		arg1 = add(add1_arg1, add1_arg2);
+		push 0; // tmp int arg2;
+		push 0; // tmp int add2_arg1;
+		mov [sp], 3 // add2_arg2 = 3;
+		push 0; // tmp int add2_arg2;
+		mov [sp], 4 // add2_arg2 = 4;
+		arg2 = add(add2_arg1, add2_arg2);
+		ret1 = mul(arg1, arg2);
+		mov [fp - 8], [sp++] // x = ret1;
+	}
+
+	// (This is just silly, besides we can't even assign to [sp] currently)
+
+=>
+
+	// Convert function calls into `call`s
+	main() {
+		push 0; // int x
+		push 0; // tmp int ret1;
+		push 0; // tmp int arg1;
+		push 0; // tmp int add1_arg1;
+		mov [sp], 1 // add1_arg1 = 1;
+		push 0; // tmp int add1_arg2;
+		mov [sp], 2 // add1_arg2 = 2;
+		call add // arg1 = add(add1_arg1, add1_arg2);
+		push 0; // tmp int arg2;
+		push 0; // tmp int add2_arg1;
+		mov [sp], 3 // add2_arg2 = 3;
+		push 0; // tmp int add2_arg2;
+		mov [sp], 4 // add2_arg2 = 4;
+		call add // arg2 = add(add2_arg1, add2_arg2);
+		call mul // ret1 = mul(arg1, arg2);
+		mov [fp - 8], [sp++] // x = ret1;
+	}
+
+Could we just use plain syntax?
+
+	use asm.{sp,call};
+
+	main() {
+		*--sp = 0; // x
+		--sp; // allocate space for ret1
+		--sp; // allocate space for arg1
+		--sp; // allocate space for add1_arg1;
+		*sp = 1; // add1_arg1 = 1;
+		--sp; // allocate space for add1_arg2;
+		*sp = 2; // add1_arg2 = 2;
+		call add;
+		// etc
+	}
+
+`call` must be special, since it pushes things to stack before setting pc to a
+new value. The syntax is similar to `goto add`. At this point, values like the
+function name and local labels are considered global constants.
+
+Optimizing things like `goto next;` into `pc += 3;` or stuff like that are
+exactly that, optimizations.
 
