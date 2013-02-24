@@ -24,12 +24,15 @@ int main(int argc, char* argv[]) {
 
 	unsigned int val = 0;
 	if (unbits) {
-		char c, *arg = argv[1];
-		while ((c = *arg++)) {
-			if (c == '_') continue;
-			if (c != '0' && c != '1')
-				return printf("Invalid input value '%c' at %ld\n", c, arg-argv[1]);
-			val = (val << 1) | (c == '1');
+		int arg_idx = 1;
+		while (arg_idx < argc) {
+			char c, *arg = argv[arg_idx++];
+			while ((c = *arg++)) {
+				if (c == '_') continue;
+				if (c != '0' && c != '1')
+					return printf("Invalid input value '%c' at %ld\n", c, arg-argv[1]);
+				val = (val << 1) | (c == '1');
+			}
 		}
 		printf("%d (0x%x)\n", val, val);
 	} else {
