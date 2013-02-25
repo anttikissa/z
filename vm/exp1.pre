@@ -1,0 +1,360 @@
+# Experimental minimal virtual machine from the ground up
+
+It starts with a byte.
+
+Memory is an area with many bytes.
+
+So that we can refer to an individual byte, we give each byte an address.  The
+address is simply a number starting from zero.  The first byte has address 0, the
+second one has address 1, and so on.  An address is said to /point/ at a byte;
+often, we talk about /pointers/ when we mean addresses.
+
+Computers do all sorts of things to these bytes.  Basically they perform
+computation.  We might ask computer to add byte at memory location 1 to a byte at
+memory location 0.  This is called an instruction.
+
+To encode the instruction in a form that computer can efficiently read, we have
+represent the instruction as a number.  For simplicity, it's useful to keep that
+number the same size (even though many real-world machine languages instructions
+of different lengths).  How big a number should we pick for the instruction?
+The computer loves multiples of 8 bits, and especially numbers that are of the
+form `8 * 2^n`.  We pick 32 bits, since that lets us nicely represent a good
+spectrum of instructions while not usually wasting too much space.
+
+The bit representation of that number is:
+
+oooooooo aaaaaaaa aaaabbbb bbbbbbbb
+
+Let's say that O is the number denoted by the 8 bits marked with o; similarly, A
+is the 12-bit number denoted by a's, and B by b's.  The O is called /opcode/ and
+denotes the operation that we want to do.  `A` points to the byte that we want
+to operate on; it's called the /target/ address. `B` points to the byte that
+takes part in the computation, but is not modified in the process; it's called
+the /operand/.
+
+We give some commonly used operations opcodes starting from 0: 0 is add, 1 is
+subtract, 2 is multiply, 3 division, and so on.
+
+## Instruction table
+
+00000000 add B to A
+00000001 subtract B from A
+00000010 multiply A with B
+00000011 divide A by B
+
+With this newly armed instruction set, we can write our first program.  We
+compute the product (1 + 2) * 3 and place the result in memory location 0.  We
+must have the numbers in the memory before we start executing the program.  This
+is the initial state of the memory:
+
+00000001 00000010 00000011
+
+Bytes at addresses 0, 1, and 2 contain the number 1, 2, and 3, respectively.
+
+Here is our program.  We have annotated it with a special notation: `*<number>`
+means 'the byte at address <number>'.
+
+00000000 00000000 00000000 00000001  // add *0b00000001 to *0b00000000 
+00000010 00000000 00000000 00000010  // multiply *0b00000000 with *0b00000010 
+
+How does the machine know when to stop executing?  For that, we have a special
+instruction `exit`, which only takes one address, whose contents it presents as
+a result.  The exit instruction has the following bit representation:
+
+10000000 00000000 0000aaaa aaaaaaaa
+
+Sometimes it's useful to use a certain value without having it stored in the
+memory.  For that, we store the value in the instruction itself.  To communicate
+to the machine that we mean the number itself instead of the byte that it points
+to, we flip the highest bit of the number.  We call these values that are
+embedded in the instruction /immediate values/.
+
+iiiiiiii aaaaaaaa aaaa1bbb bbbbbbbb
+
+The astute reader will immediately notice two things: first, we may not use an
+immediate value as the target, since that does not make any sense (aside:
+it would certainly be possible to make a machine where numbers could be
+modified. However, it would be inefficient, and more importantly, inconvenient,
+since it would make reasoning about programs rather difficult.) and second, that
+we have whole 11 bits for representing the value, even though our world only
+consists of 8-bit values.  This might seem like a waste, but eventually the bits
+will find a good use.  For now, the machine will only look at the lowest 8 bits.
+
+## Implementing the virtual machine
+
+Here's a straightforward C++ implementation of the virtual machine.
+
+It imports `stdio` for input and output, and defines shorthands for types we use:
+
+	#include <stdio.h>
+
+	typedef unsigned char byte;
+	typedef unsigned int uint32;
+
+Next, we define the data and code.  We have 1024 bytes for data and and 1024*4
+bytes for instructions.
+
+	const uint32 data_size = 1024;
+	const uint32 code_size = 1024;
+
+	byte data[data_size] = {
+		0x01,
+		0x02,
+		0x03
+	};
+
+	uint32 code[code_size] = {
+		0x00000001, // add *0, *1
+		0x02000002, // mul *0, *2
+		0x80000000, // exit *0
+	};
+
+To decode the instructions, we define a handful of masks:
+
+	const int opcode_bits = 8;
+	const int opcode_mask = (1 << opcode_bits) - 1;
+	const int a_bits = 12;
+	const int a_mask = (1 << a_bits) - 1;
+	const int b_bits = 12;
+	const int b_mask = (1 << b_bits) - 1;
+
+The opcodes we support are:
+
+	const int op_exit = 0x80;
+	const int op_add = 0x00;
+	const int op_sub = 0x01;
+	const int op_mul = 0x02;
+	const int op_div = 0x03;
+
+The main program initializes pc to the first instruction and enters the
+instruction decode loop:
+
+	int main() {
+		uint32* pc = &code[0];
+
+		while (true) {
+			...
+		}
+	}
+
+The decode loop first checks that `pc` is within bounds:
+
+			if (pc >= code_size) {
+				printf("invalid pc");
+				return 1;
+			}
+
+It decodes the instruction:
+
+			unsigned int instr = *pc++;
+			unsigned int b = instr & b_mask;
+			unsigned int a = (instr >> b_bits) & b_mask;
+			unsigned int opcode = (instr >> (a_bits + b_bits)) & opcode_mask;
+
+And checks that `a` is valid, and makes `a_mem` which is a pointer to the data:
+
+			if (a >= data_size) {
+				printf("invalid memory access: %08x\n", a);
+				return 1;
+			}
+
+			byte* a_mem = &data[a];
+
+Since `b` can be an immediate value, it requires slightly different treament:
+
+			byte b_immediate;
+			byte* b_mem;
+			// Immediate?
+			if (b & (1 << 11)) {
+				b_immediate = b & ((1 << 11) - 1);
+				b_mem = &b_immediate;
+			} else {
+				if (b >= data_size) {
+					printf("invalid memory access: %08x\n", b);
+					return 1;
+				}
+				b_mem = &data[b];
+			}
+
+Then we do the right thing depending on the operator:
+
+			switch (opcode) {
+				case op_exit:
+					printf("exit with value %d\n", *b_mem);
+					return 0;
+				case op_add:
+					*a_mem += *b_mem;
+					break;
+				case op_sub:
+					*a_mem -= *b_mem;
+					break;
+				case op_mul: 
+					*a_mem *= *b_mem;
+					break;
+				case op_div: 
+					*a_mem /= *b_mem;
+					break;
+				default:
+					printf("invalid instruction\n");
+					return 1;
+			}
+
+## From machine code to assembly language
+
+To represent the program and its data in a more human-readable (and, less
+importantly, human-writable) way, we write it in an "assembly language" from
+which a program might "assemble" it into machine code.
+
+This makes our programs easier to write, and more importantly, easier to read.
+
+Here's how our program might look in an assembly language.  The program has two
+parts: first, we declare the data that we want to fill the memory with; then we
+write the program that will operate on that data.
+
+	byte 1;
+	byte 2;
+	byte 3;
+
+	add(*0, *1);
+	mul(*0, *2);
+	exit(*0);
+
+We use `byte` statement to determine how our memory looks like.  After the last
+`byte` comes the program.  Instructions take the form `<operation>(target,
+source);` or just `<operation>(source);` when there is no target.  We use the
+notation `*<number>` to denote the contents at memory cell `<number>`.
+
+Converting the program to use immediate values is easy:
+
+	byte 1;
+
+	add(*0, 2);
+	mul(*0, 3);
+	exit(*0);
+
+To make things even easier, we might give names to the memory addresses.  A
+named memory address is called a /variable/.  To /declare/ a variable, we adopt
+the following syntax:
+
+	byte <variable> = <number>;
+
+This tells the assembler to allocate space for `<variable>` from the memory, and
+initialize that memory location with `<number>`.
+
+The first variable is at memory location 0, and the subsequent variables come
+after that.  The program can simply use the variable's name when it wants to
+address that memory location.
+
+Converted to use variables, the program looks like:
+
+	byte result = 1;
+	byte two = 2;
+	byte three = 3;
+
+	add(result, two);
+	mul(result, three);
+	exit(result);
+
+# TODO negative numbers, signed and unsigned operations 
+
+# From bytes to integers
+
+We can write many useful programs with our little machine, but 8 bits only gets
+you so far.  To perform operations on larger numbers, we need to expand our 
+
+
+macros:
+
+macro plus(x, y) {
+	result = x;
+	add(result, y);
+}
+
+* are inlined and typeless
+* special variable `result` 
+* how do they work
+
+types:
+
+	type Pair {
+		int32 first;
+		int32 second;
+	}
+
+Then declaring `Pair pair;` and saying `add(pair.first, pair.second)` has
+exactly the same effect as if you had declared the variables `int32 pair.first;`
+and `int32 pair.second;`
+
+Suppose we wanted to give the Pair's contents default values.  This works, of
+course:
+
+	type Pair {
+		int32 first = 1;
+		int32 second = 2;
+	}
+
+Again, it has exactly the same effect as if you had declared the variables
+`int32 pair.first = 1;` and `int32 pair.second = 2;`.  But what if we don't know
+the proper default values for `first` and `second` until we declare a pair?  Or
+what if we want to declare two pairs with different values?
+
+For that, we'll write a /constructor/.  A constructor is like a macro, but it is
+automatically called when a variable is declared.
+
+Macro constructor:
+
+	type Pair {
+		macro init(first, second) {
+			this.first = first;
+			this.second = second;
+		}
+	}
+
+To call a constructor, use the syntax:
+
+	Pair pair = (1, 2);
+
+
+The compiler knows to allocate space for two int32's inside Pair, since you
+declared them inside it.  But what if you don't want to declare anything inside
+a type? In that case, we can just specify the size of a type without determining
+what goes inside.
+
+type Buffer (1024) {
+	
+}
+
+This allocates a buffer of 1024 bytes, which you can use as you like.
+
+But what if we don't know the length until we declare the variable?
+
+Buffer b;
+
+type Bytes<n> (n) {
+	
+}
+
+-> Array
+
+type Array<T, n> (T.size * n) {
+	macro at(n) {
+		...
+	}
+}
+
+In fact, even types like int32 are in no way special; you can define it by saying:
+
+type int32 (4) {
+	macro init(value) {
+		// TODO real instruction
+		this = value;
+	}
+}
+
+TODO how to solve discrepancy between pre-baked global ints and local ones that
+need initialization?
+
+* Arrangement of things by saying `type Registers { int32 foo @ 16; int32 bar
+  @ 20; ` etc; and then (globally) `Registers registers @ 0x1000`.
+
+

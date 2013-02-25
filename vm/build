@@ -9,6 +9,7 @@ function ts() {
 echo `ts` Building.
 
 c++ fvm.cpp -o fvm
+c++ exp1.cpp -o exp1
 
 status=$?
 if [[ $status == 0 ]]
