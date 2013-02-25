@@ -1,0 +1,121 @@
+#!/usr/bin/env coffee
+# vim:set ft=coffee:
+
+# Assembler for the experimental minimal virtual machine.
+# Eats .asm1 files and produces .cpp files.
+
+fs = require 'fs'
+log = require 'basic-log'
+
+args = process.argv.splice(2)
+if !args.length
+	console.log "Usage: asm1 <files...>"
+
+assemble = (file, name) ->
+	lines = file.trim().split(/\n/)
+
+	data = []
+	program = []
+
+	# allocate a byte in memory; initialize it with `number`.
+	dataDecl = (number) ->
+		data.push number
+
+	instr = (op, a, b) ->
+		if not b?
+			b = a
+			a = undefined
+
+		opcode = switch op
+			when 'add' then 0x00
+			when 'sum' then 0x01
+			when 'mul' then 0x02
+			when 'div' then 0x03
+			when 'exit' then 0x80
+
+#		log "a #{a}, b #{b}, opcode #{opcode}"
+
+		# memory address?
+		bCode =
+			if b[0] == '*'
+				bNum = Number(b[1..])
+				if bNum >= 0b111111111111
+					throw new Error("#{name}: #{bNum} won't fit in 12 bits on line #{lineNo}: #{line}")
+				bNum
+			else
+				bNum = Number(b)
+				if bNum >= 0b1111111111
+					throw new Error("#{name}: #{bNum} won't fit in 11 bits on line #{lineNo}: #{line}")
+				bNum | 0b100000000000
+
+		aCode =
+			if not a?
+				0
+			else
+				if a[0] == '*'
+					aNum = Number(a[1..])
+					if aNum >= 0b111111111111
+						throw new Error("#{name}: #{aNum} won't fit in 12 bits on line #{lineNo}: #{line}")
+					Number(a[1..])
+				else
+					throw new Error("#{name}: target cannot be immediate on line #{lineNo}: #{line}")
+
+		program.push
+			opcode: opcode
+			a: aCode
+			b: bCode
+
+	for line, idx in lines
+		lineNo = idx + 1
+		# strip comments
+		line = line.replace(/\/\/.*/, '')
+
+		# log line
+		# empty lines do nothing
+		if line.trim().length == 0
+			continue
+
+		dataDeclMatch = line.match /^\s*byte (\d+);\s*$/
+		if dataDeclMatch
+			dataDecl(dataDeclMatch[1])
+			continue
+		instrMatch = line.match /^\s*([a-zA-Z_]\w*)\((\*?\d+)(?:,\s*(\*?\d+))?\);\s*$/
+		if instrMatch
+			instr(instrMatch[1], instrMatch[2], instrMatch[3])
+			continue
+
+		throw new Error("#{name}: syntax error on line #{lineNo}: #{line}")
+
+	output(data, program)
+
+output = (data, program) ->
+
+	result = "const uint32 data_size = #{data.length};\n"
+	result += "byte data[data_size] = {\n"
+	for d in data
+		result += "\t0x#{d.toString(16)},\n"
+	result += "};\n\n"
+
+	result += "const uint32 code_size = #{program.length};\n"
+	result += "uint32 code[code_size] = {\n"
+	for p in program
+		instr = (p.opcode << (12 + 12)) |
+			(p.a << 12) |
+			(p.b)
+		# the shift might result in a negative number - fix that
+		if instr < 0
+			instr += (1 << 30) * 4
+		result += "\t0x#{instr.toString(16)},\n"
+	result += "};\n\n"
+
+	pre = fs.readFileSync('exp1_bare_pre.cpp', 'utf-8')
+	post = fs.readFileSync('exp1_bare_post.cpp', 'utf-8')
+	pre + result + post
+
+for arg in args
+	file = fs.readFileSync(arg, 'utf8')
+	result = assemble file, arg
+	outputFile = arg.replace(/(\.asm1|)$/, '.cpp')
+	fs.writeFileSync(outputFile, result)
+	console.log(outputFile)
+
