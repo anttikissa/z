@@ -2,60 +2,94 @@
 
 It starts with a byte.
 
-Memory is an area with many bytes.
+Consisting of 8 bits (binary digits) that are either 0 are 1, the byte is a
+fundamental unit of data representation.
 
-So that we can refer to an individual byte, we give each byte an address.  The
-address is simply a number starting from zero.  The first byte has address 0, the
-second one has address 1, and so on.  An address is said to /point/ at a byte;
-often, we talk about /pointers/ when we mean addresses.
+### TODO set `d`s in italic or something to make them stand out
 
-Computers do all sorts of things to these bytes.  Basically they perform
-computation.  We might ask computer to add byte at memory location 1 to a byte at
-memory location 0.  This is called an instruction.
+It can be used to represent 2^8 = 256 different integers, and this is where
+we'll start.  To show the binary representation of a number, we say
+`0b<dddddddd>`, where `d`s the bits of the byte, from the most significant to the
+least significant.  If there number of `d`s is less than 8, the highest digits
+are taken to be zero.  This lets us represent the integers 0 (0b00000000) to 255
+(0b11111111).  Right now, we'll concern ourselves with just nonnegative integers.
 
-To encode the instruction in a form that computer can efficiently read, we have
-represent the instruction as a number.  For simplicity, it's useful to keep that
-number the same size (even though many real-world machine languages instructions
-of different lengths).  How big a number should we pick for the instruction?
-The computer loves multiples of 8 bits, and especially numbers that are of the
-form `8 * 2^n`.  We pick 32 bits, since that lets us nicely represent a good
-spectrum of instructions while not usually wasting too much space.
+Memory is an area with many bytes, said to consist of memory cells that can hold
+one byte of data.
 
-The bit representation of that number is:
+So that we can refer to an individual memory cell, we give each one an address.
+The address is simply a number starting from zero.  The first cell has address
+0, the second one has address 1, and so on.  An address is said to /point/ at a
+memory cell (or to the byte therein); often, we talk about /pointers/ when we
+mean addresses.
 
-oooooooo aaaaaaaa aaaabbbb bbbbbbbb
+We now design and implement a machine that performs operations on the bytes in
+the memory.
+
+The machine does all sorts of things to these bytes.  Basically they perform
+computation.  We might ask the machine to add byte at memory location 1 to a
+byte at memory location 0.  This is called an instruction.
+
+To encode the instruction in a form that computer can efficiently read, it is
+represented as a number.  For simplicity, it's useful to keep that number the
+same size (even though many real-world machine languages instructions of
+different lengths).  How big a number should we pick for the instruction?  The
+computer loves multiples of 8 bits, and especially numbers that are of the form
+`8 * 2^n`.  We pick 32 bits, since that lets us nicely represent a good spectrum
+of instructions while not usually wasting too much space.
+
+The bit representation of the instruction is: 
+
+	0b<oooooooo_aaaaaaaa_aaaabbbb_bbbbbbbb>
+
+(The underscores do not have a semantic significance; they are there as
+signposts to help the reader make a sense out of the number.)
 
 Let's say that O is the number denoted by the 8 bits marked with o; similarly, A
 is the 12-bit number denoted by a's, and B by b's.  The O is called /opcode/ and
-denotes the operation that we want to do.  `A` points to the byte that we want
-to operate on; it's called the /target/ address. `B` points to the byte that
-takes part in the computation, but is not modified in the process; it's called
-the /operand/.
+denotes the operation that we want to do.  `A` and `B` are called /operands/,
+and they determine what the instruction operates on.  `A`, the /target/ operand,
+points to a memory location we want to change;  `B` points to memory location
+whose contents we use to change it.  The memory location at `B` will never be
+changed.
 
 We give some commonly used operations opcodes starting from 0: 0 is add, 1 is
 subtract, 2 is multiply, 3 division, and so on.
 
 ## Instruction table
 
-00000000 add B to A
-00000001 subtract B from A
-00000010 multiply A with B
-00000011 divide A by B
+	00000000 add B to A
+	00000001 subtract B from A
+	00000010 multiply A with B
+	00000011 divide A by B
+
+The instructions live in a memory like the data they operate on, only it is a
+different kind of memory.  It, too, has addresses like the data memory: the
+number 0 means the first instruction, and so on.
+
+There is a special number called `pc`, short for /program counter/, that points
+to the next instruction that the machine will execute.
 
 With this newly armed instruction set, we can write our first program.  We
 compute the product (1 + 2) * 3 and place the result in memory location 0.  We
-must have the numbers in the memory before we start executing the program.  This
+data must preexist in the memory before we start to execute the program (we'll
+eventually have a means to load arbitrary data into memory, but not yet.) This
 is the initial state of the memory:
 
-00000001 00000010 00000011
+	00000001 00000010 00000011
 
 Bytes at addresses 0, 1, and 2 contain the number 1, 2, and 3, respectively.
 
 Here is our program.  We have annotated it with a special notation: `*<number>`
-means 'the byte at address <number>'.
+means 'the byte at address <number>'.  
 
-00000000 00000000 00000000 00000001  // add *0b00000001 to *0b00000000 
-00000010 00000000 00000000 00000010  // multiply *0b00000000 with *0b00000010 
+### TODO comments
+
+	// add *0b00000001 to *0b00000000 
+	00000000 00000000 00000000 00000001
+
+	// multiply *0b00000000 with *0b00000010 
+	00000010 00000000 00000000 00000010  
 
 How does the machine know when to stop executing?  For that, we have a special
 instruction `exit`, which only takes one address, whose contents it presents as
@@ -63,10 +97,17 @@ a result.  The exit instruction has the following bit representation:
 
 10000000 00000000 0000aaaa aaaaaaaa
 
+Note that even though the exit instruction has space for the target operand, it
+is never used.  In fact, the bits usually reserved for the target operand may
+contain anything; the machine does not care.  But there is a convention that
+they are always set to zero.  By doing this, we effectively reserve a block in
+the instruction space that we may later reuse for other purposes if we so
+choose.
+
 Sometimes it's useful to use a certain value without having it stored in the
 memory.  For that, we store the value in the instruction itself.  To communicate
 to the machine that we mean the number itself instead of the byte that it points
-to, we flip the highest bit of the number.  We call these values that are
+to, we set the highest bit of the number to 1.  We call these values that are
 embedded in the instruction /immediate values/.
 
 iiiiiiii aaaaaaaa aaaa1bbb bbbbbbbb
@@ -77,8 +118,9 @@ it would certainly be possible to make a machine where numbers could be
 modified. However, it would be inefficient, and more importantly, inconvenient,
 since it would make reasoning about programs rather difficult.) and second, that
 we have whole 11 bits for representing the value, even though our world only
-consists of 8-bit values.  This might seem like a waste, but eventually the bits
-will find a good use.  For now, the machine will only look at the lowest 8 bits.
+consists of 8-bit values.  This might seem like a waste, but rest assured that
+eventually the bits will find a good use.  For now, the machine will only look
+at the lowest 8 bits.
 
 ## Implementing the virtual machine
 
@@ -209,22 +251,43 @@ This makes our programs easier to write, and more importantly, easier to read.
 
 Here's how our program might look in an assembly language.  The program has two
 parts: first, we declare the data that we want to fill the memory with; then we
-write the program that will operate on that data.
+write the program that will operate on that data.  Each part consists of
+/statements/; the statements in the first part are called /data declaration
+statements/, and the statements in the second part are called /instruction
+statements/.
 
 	byte 1;
 	byte 2;
 	byte 3;
 
+	// add to memory cell 0 the contents of memory cell 1
 	add(*0, *1);
+	// multiply the contents of memory cell 0 by the contents of memory cell 2
 	mul(*0, *2);
 	exit(*0);
 
-We use `byte` statement to determine how our memory looks like.  After the last
+In principle, we could intersperse data declaration statements and instruction
+statements, and soon we will.  But it is important to keep in mind that the two
+go into two distinct memory spaces.
+
+The `byte` statements determine the contents of the memory.  After the last
 `byte` comes the program.  Instructions take the form `<operation>(target,
 source);` or just `<operation>(source);` when there is no target.  We use the
 notation `*<number>` to denote the contents at memory cell `<number>`.
+Converting a memory address into the contents of its cell is called
+/dereferencing/ (aside: the concept, and the word, might seem slightly odd,
+since we don't know how to do /referencing/ yet; that will come soon.)
 
-Converting the program to use immediate values is easy:
+### TODO implement assembler
+
+We'll write the assembler in a little language called CoffeeScript -- it's terse
+syntax and the power of regular expressions lets us express our assembler
+succinctly.
+
+TODO explain relevant parts of `asm1`.
+
+The denotation may seem strange.  However, it lets us easily express programs
+that use immediate values;
 
 	byte 1;
 
@@ -232,8 +295,13 @@ Converting the program to use immediate values is easy:
 	mul(*0, 3);
 	exit(*0);
 
-To make things even easier, we might give names to the memory addresses.  A
-named memory address is called a /variable/.  To /declare/ a variable, we adopt
+To make things even easier, we might give names to the memory addresses.  Let's
+call the first memory address 'result'.  The assembler must now become smarter:
+it has to keep track of names and the memory locations associated with them; and
+when the names are used, it must fetch the memory location associated with the
+name.
+
+A named memory address is called a /variable/.  To /declare/ a variable, we adopt
 the following syntax:
 
 	byte <variable> = <number>;
@@ -245,7 +313,7 @@ The first variable is at memory location 0, and the subsequent variables come
 after that.  The program can simply use the variable's name when it wants to
 address that memory location.
 
-Converted to use variables, the program looks like:
+Converted to use variables, the original program looks like:
 
 	byte result = 1;
 	byte two = 2;
@@ -255,7 +323,7 @@ Converted to use variables, the program looks like:
 	mul(result, three);
 	exit(result);
 
-# TODO negative numbers, signed and unsigned operations 
+### TODO negative numbers, signed and unsigned operations 
 
 # From bytes to integers
 
@@ -357,4 +425,14 @@ need initialization?
 * Arrangement of things by saying `type Registers { int32 foo @ 16; int32 bar
   @ 20; ` etc; and then (globally) `Registers registers @ 0x1000`.
 
+
+
+
+later...
+
+## negative integers
+
+represent the nonnegative integers 0..127 with binary representation
+00000000..01111111, and the negative integers -128..-1 with binary
+representation 10000000..11111111
 
