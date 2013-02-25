@@ -1,11 +1,12 @@
-
 # VM documentation
 
 ## Registers
 
-Fictive VM comes with three registers: `sp`, `pc` and `fp`.  There are no
-general-purpose registers.  `pc` is required to execute code; `sp` is required
-to store state; `fp` is used to access local variables and function arguments.
+Fictive VM comes with three registers `pc`, `sp` and `fp`.  
+
+`pc`, program counter, is required to execute code; `sp`, stack pointer, is
+required to maintain a stack; and `fp`, frame pointer, is used to access local
+variables and function arguments.
 
 ### Program counter `pc`
 
@@ -97,7 +98,51 @@ Pop a value from stack:
 
 ### Frame pointer `fp`
 
-`fp` stores the address of the current frame pointer.
+Frame pointer points at a fixed location inside the current stack frame.  It can
+be used to access local variables, function arguments, and the return value.
+
+The stack frame consists of
+
+1. Return value
+2. Function arguments (pushed to stack from left to right)
+3. Return address
+4. Value of the old frame pointer
+5. Local variables (in the order in which they are declared)
+6. Temporary variables (used to call functions)
+
+For example, if we have the code:
+
+f() {
+	int x = 1;
+	x += add(2, 3);
+}
+
+int add(int a, int b) {
+	return a + b;
+}
+
+Then the stack frame just before calling `add` would be:
+
+		what?	name	contents			description
+
+		ret0			<address>			return address of f
+	fp	fp0				<address>			fp of f's parent
+		var1	x		1
+		ret1			0					allocated for the return value
+		arg1			2					first pushed argument
+	sp	arg2			3					second pushed argument
+
+Then f performs `call add`, which stores the return value and jumps to `add`:
+
+		ret0			<address>			return address of f
+	fp	fp0				<address>			fp of f's parent
+		var1	x		1
+		ret1			0					allocated for the return value
+		arg1			2					first pushed argument
+		arg2			3					second pushed argument
+	sp	ret1			<address>			return address of add
+
+It is the duty of the called function to save `fp` # ...
 
 ## Function call sequence
 
@@ -142,6 +187,8 @@ Stack:
 
 		mov pc, f
 
+Steps 2 and 3 can be combined by using the `call f` instruction.
+
 4. The callee saves the fp:
 
 	f:
@@ -162,7 +209,7 @@ Stack:
 
 	f:
 		...
-		sub 24
+		sub sp, 24
 	
 	old fp	older fp
 			var1
@@ -349,7 +396,7 @@ that the reads and writes happen.  So `sub stack, stack, stack` pops the first
 argument from stack, then the second argument, calculates `first - second`, and
 pushes the result to the stack.  
 
-TODO what do two-argument instructions do?  add stack, 
+TODO what do two-argument instructions do?  add stack, stack?
 
 TODO what does `store` do in case of `store stack, stack`?
 
@@ -361,9 +408,9 @@ Instructions take 6 bits and are divided into 8 groups.
 
 The instructions in groups 0 and 1 take 0 and 1 argument, respectively; groups
 2, 4 and 6 take 2 arguments and 3, 5 and 7 take 3 arguments.  The instructions
-that take 2 arguments generally modify their first arguments, which is usually
+that take 2 arguments generally modify their first argument, which is usually
 named `target`.  The sole exception is `store`, which stores its argument into
-the memory address specified by the first argument, without modifying its first
+the memory address specified by the first argument.  It doesn't modify its first
 argument.
 
 
