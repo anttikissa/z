@@ -14,9 +14,9 @@ byte m[data_size] = {
 };
 
 uint32 code[code_size] = {
-	0x00000001,
-	0x02000002,
-	0x0f000000,
+	0x00000001, // add m[0], m[1]
+	0x02000002, // mul m[0], m[2]
+	0x0f000000, // exit m[0]
 };
 
 const int opcode_bits = 8;
@@ -30,6 +30,7 @@ const int op_add = 0x00;
 const int op_sub = 0x01;
 const int op_mul = 0x02;
 const int op_div = 0x03;
+const int op_mod = 0x04;
 
 const int op_exit = 0x0f;
 
@@ -46,10 +47,10 @@ int main() {
 			fail("invalid pc");
 		}
 
-		unsigned int instr = code[pc++];
-		unsigned int b = instr & b_mask;
-		unsigned int a = (instr >> b_bits) & b_mask;
-		unsigned int opcode = (instr >> (a_bits + b_bits)) & opcode_mask;
+		uint32 instr = code[pc++];
+		uint32 b = instr & b_mask;
+		uint32 a = (instr >> b_bits) & b_mask;
+		uint32 opcode = (instr >> (a_bits + b_bits)) & opcode_mask;
 
 		printf("instr: %08x, op: %02x, a: %03x, b: %03x\n", instr, opcode, a, b);
 
@@ -87,9 +88,11 @@ int main() {
 			case op_div: 
 				*a_mem /= *b_mem;
 				break;
+			case op_mod: 
+				*a_mem %= *b_mem;
+				break;
 			default:
 				fail("invalid instruction\n");
-				break;
 		}
 	}
 }

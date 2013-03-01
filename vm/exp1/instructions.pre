@@ -1,38 +1,67 @@
+## Instructions
 
-	Instructions 0-7: basic arithmetic
+### Instruction format
+
+The instruction format as a 32-bit unsigned integer value  is:
+
+	oooooooo aaaaaaaa aaaabbbb bbbbbbbb
+
+where `o`s denote the opcode O, `a`s denote the target operand A, and `b`s
+denote the source operand B.
+
+In memory, the instruction is represented in the little endian byte order: the
+lowest 8 bits come first, and the highest 8 bits come last.  So, for example, if
+the instruction is located in memory location i, m[i] contains the lowest 8 bits
+of B and m[i + 3] contains the opcode.
+
+Generally, instructions manipulates target using the source in a manner
+determined by the opcode.
+
+### Opcodes
+
+Opcodes take the format
+
+	swwooooo
+
+Where `s` is a "special" bit, whose meaning depends on the operation; `ww`
+determines the width of the operation, which generally (but not always) means
+the width of both source and target operands; and `ooooo` is one of the 32
+operations.
+
+#### Operations 0-7: basic arithmetic
 
 	sww00000 add
 	sww00001 sub
 	sww00010 mul
 	sww00011 div
-	sww00100 rem (a % b, b determines sign of result)
+	sww00100 mod (a % b, b determines sign of result; treat a, b as signed if s)
 	sww00101 muls
 	sww00110 divs
-	sww00111 mod (a % b, a determines sign of result)
+	sww00111 rem (a % b, a determines sign of result)
 
-	Instructions 8-15: bitwise arithmetic
+#### Operations 8-15: bitwise arithmetic & exit)
 
 	sww01000 or
 	sww01001 xor
 	sww01010 and
 	sww01011 shl (shift a left by b)
-	sww01100 shr (shift a right b)
-	sww01101 asr (arithmetic shift right a by b (fill in with highest bit))
-	sww01110 (reserved)
+	sww01100 shr (shift a right by b; do arithmetic shift if s)
+	sww01100 from (move b into 64-bit value a (s: signed); ww: b's width)
+	sww01110 to (move the lowest bits of b into a; ww: a's width)
 	sww01111 exit
 
-	Instructions 16-23: misc & comparisons
+#### Operations 16-23: misc & comparisons
 
 	sww10000 set (set a to b)
 	sww10001 load (set a to m[b])
 	sww10010 store (set m[a] to b)
-	sww10011 expand (expand b into 64-bit value a (s: signed))
+	sww10011 (reserved)
 	sww10100 call
 	sww10101 ret
 	sww10110 ifeq (if a == b)
 	sww10111 ifne (if a != b)
 
-	Instructions 24-31: comparisons
+#### Operations 24-31: comparisons
 
 	sww11000 iflt (if a < b)
 	sww11001 ifle (if a <= b)
@@ -43,16 +72,144 @@
 	sww11110 ifgts (if a > b, signed comparison)
 	sww11111 ifges (if a >= b, signed comparison)
 
-	w = width:
+#### Meaning of `s`
+
+When I is 0..3 (basic arithmetic) or 22..31 (comparison), `s` means "floating
+point operation"
+
+With `from`, and `shr`, it means signedness; could be with shr as well
+with basic arithmetic and comparisons, switch to floating point
+
+#### Meaning of `w`:
 
 	00: 8 bits
 	01: 16 bits
 	10: 32 bits
 	11: 64 bits
 
-	s: special
-	with expand, signedness; could be with shr as well
-	with basic arithmetic and 
+With floating point instructions, `w` has a different meaning:
+
+	00: 32 bits
+	01: 64 bits
+	10: 80 bits
+	11: 128 bits
 
 
+#### The signedness of an instruction
+
+The instruction `swwooooo` is signed, if:
+
+	* opcode is one of [muls, div, rem, iflts, ifles, ifgts, ifges]
+	* opcode is one of [mod, shr, from], and s is 1
+
+## Operands
+
+We'll consider the source operand first (the part with `b`s), since most of the
+values it can take are the same for the target operand
+
+; target operand is the same, except that 
+Source operand may be:
+
+### Memory value
+
+	00bb bbbb bbbb
+
+The interpretation depends on the bit width of the instruction:
+
+	bits	meaning
+	8		m[B]
+	16		m16[B]
+	32		m32[B]
+	64		m64[B]
+
+If the instruction is a floating point one, it means
+
+	bits	meaning
+	32		m32[B]
+	64		m64[B]
+	80		m128[B]
+	128		m128[B]
+
+### Register-relative memory address
+
+	01rr bbbb bbbb
+
+Meaning: register[B]
+
+Where `register` is:
+
+	rr register
+	00 pc
+	01 sp
+	10 fp
+	11 (reserved)
+
+The width affects the meaning so that, for example, when the width is 64 bits,
+the addressing is done relative to `sp32`; and when the width is 8 bits, it's
+done relative to `sp8` (which points to the same place in memory as `sp32`).
+(In a C implementation, `sp8` would be a `unsigned char *`, and `sp32` an
+`unsigned int *`.)
+
+### Immediate value
+
+	10bb bbbb bbbb
+
+Meaning: B
+
+If the operation is signed, the highest bit is used to expand the operand to 64
+bits first.
+
+### Special value 
+
+Special value is one of
+
+#### Register
+
+	11rr 0000 0000
+
+Where `register` is:
+
+	rr register
+	00 pc
+	01 sp
+	10 fp
+	11 (reserved)
+
+#### Long memory value or long immediate value 
+
+When a memory value or an immediate value doesn't fit into the instruction
+itself, it can occupy either 32 or 64 bits after the instruction.  After the
+instruction is decoded, pc is immediately incremented to advance to the next
+instruction.
+
+	1100 0010 0000 mem32[mem32[pc32++]]
+	1100 0011 0000 mem32[mem32[pc32++]] + mem32[mem32[pc32++]] << 32
+	1100 1010 0000 mem32[pc32++]
+	1100 1011 0000 mem32[pc32++] + mem32[pc32++] << 32
+
+If `pc` is written to, it does not affect the execution of the instruction that
+is doing to writing.
+
+`pc` may not be addressed in 64-bit mode, since it might not land on a 64-bit
+boundary, and therefore not be addressable with 64-bit addressing.
+
+Depending on the instruction width, this 32-bit or 64-bit immediate value is
+either expanded (taking the instruction's signedness into account), or
+contracted to the instruction width.
+
+#### Pushpop
+
+	1100 1100 0000
+
+Meaning:  When reading, mem64[sp64++].  When writing, mem64[--sp64].
+
+If an operation reads both of its operands, it first reads b, then a.  This
+allows you to write, for example:
+
+	add pushpop, pushpop
+
+This will effectively be equivalent to:
+
+	add sp[1], sp[2]
+	add sp, 2
 

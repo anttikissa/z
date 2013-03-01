@@ -57,22 +57,28 @@ whose contents we use to change it.  The memory location at `B` will never be
 changed.
 
 We give some commonly used operations opcodes starting from 0: 0 is add, 1 is
-subtract, 2 is multiply, 3 division, and so on.
+subtract, 2 is multiply, 3 division, 4 modulo, and so on.  We'll just
+implement these for now.
 
 ## Instruction table
 
-	00000000 add B to A
-	00000001 subtract B from A
-	00000010 multiply A with B
-	00000011 divide A by B
-	00000100 divide A by B, leave the remainder 
+	00000000 add a, b      add b to a
+	00000001 sub a, b      subtract b from a
+	00000010 mul a, b      multiply a with b
+	00000011 div a, b      divide a by b, leave the quotient part
+	00000100 mod a, b      divide a by b, leave the remainder part
+
+The instruction number 4 (0b0100) is called `mod` even though its description
+talks about the remainder; this is because for nonnegative numbers, the _modulo
+operation_ (http://en.wikipedia.org/wiki/Modulo_operation) is equivalent to
+taking the remainder of the division.
 
 The instructions live in a memory like the data they operate on, only it is a
 different kind of memory.  It, too, has addresses like the data memory: the
 number 0 means the first instruction, and so on.
 
-There is a special number called `pc`, short for /program counter/, that points
-to the next instruction that the machine will execute.
+There is a special memory location called `pc`, short for /program counter/,
+that points to the next instruction that the machine will execute.
 
 With this newly armed instruction set, we can write our first program.  We
 compute the product (1 + 2) * 3 and place the result in memory location 0.  We
@@ -143,7 +149,7 @@ bytes for instructions.
 	const uint32 data_size = 1024;
 	const uint32 code_size = 1024;
 
-	byte data[data_size] = {
+	byte m[data_size] = {
 		0x01,
 		0x02,
 		0x03
@@ -154,8 +160,6 @@ bytes for instructions.
 		0x02000002, // mul m[0], m[2]
 		0x0f000000, // exit m[0]
 	};
-
-# TODO
 
 To decode the instructions, we define a handful of masks:
 
@@ -168,17 +172,26 @@ To decode the instructions, we define a handful of masks:
 
 The opcodes we support are:
 
-	const int op_exit = 0x80;
 	const int op_add = 0x00;
 	const int op_sub = 0x01;
 	const int op_mul = 0x02;
 	const int op_div = 0x03;
+	const int op_mod = 0x04;
+
+	const int op_exit = 0x0f;
+
+A simple error handling function:
+
+	void fail(const char* msg) {
+		printf("%s\n", msg);
+		exit(1);
+	}
 
 The main program initializes pc to the first instruction and enters the
 instruction decode loop:
 
 	int main() {
-		uint32* pc = &code[0];
+		uint32 pc = 0;
 
 		while (true) {
 			...
@@ -188,25 +201,27 @@ instruction decode loop:
 The decode loop first checks that `pc` is within bounds:
 
 			if (pc >= code_size) {
-				printf("invalid pc");
-				return 1;
+				fail("invalid pc");
 			}
 
 It decodes the instruction:
 
-			unsigned int instr = *pc++;
-			unsigned int b = instr & b_mask;
-			unsigned int a = (instr >> b_bits) & b_mask;
-			unsigned int opcode = (instr >> (a_bits + b_bits)) & opcode_mask;
+			uint32 instr = code[pc++];
+			uint32 b = instr & b_mask;
+			uint32 a = (instr >> b_bits) & b_mask;
+			uint32 opcode = (instr >> (a_bits + b_bits)) & opcode_mask;
 
-And checks that `a` is valid, and makes `a_mem` which is a pointer to the data:
+The following line is useful when debugging:
+
+			//printf("instr: %08x, op: %02x, a: %03x, b: %03x\n", instr, opcode, a, b);
+
+Check that `a` is valid, and introduce `a_mem`, which is a pointer to the data:
 
 			if (a >= data_size) {
-				printf("invalid memory access: %08x\n", a);
-				return 1;
+				fail("invalid memory access (a)");
 			}
 
-			byte* a_mem = &data[a];
+			byte* a_mem = &m[a];
 
 Since `b` can be an immediate value, it requires slightly different treament:
 
@@ -218,10 +233,9 @@ Since `b` can be an immediate value, it requires slightly different treament:
 				b_mem = &b_immediate;
 			} else {
 				if (b >= data_size) {
-					printf("invalid memory access: %08x\n", b);
-					return 1;
+					fail("invalid memory access (b)");
 				}
-				b_mem = &data[b];
+				b_mem = &m[b];
 			}
 
 Then we do the right thing depending on the operator:
@@ -242,9 +256,11 @@ Then we do the right thing depending on the operator:
 				case op_div: 
 					*a_mem /= *b_mem;
 					break;
+				case op_mod: 
+					*a_mem %= *b_mem;
+					break;
 				default:
-					printf("invalid instruction\n");
-					return 1;
+					fail("invalid instruction\n");
 			}
 
 ## From machine code to assembly language
@@ -262,27 +278,21 @@ write the program that will operate on that data.  Each part consists of
 statements/, and the statements in the second part are called /instruction
 statements/.
 
-	byte 1;
-	byte 2;
-	byte 3;
+	byte 1; // initialize m[0] with 1
+	byte 2; // initialize m[1] with 2
+	byte 3; // initialize m[2] with 3
 
-	// add to memory cell 0 the contents of memory cell 1
-	add(*0, *1);
-	// multiply the contents of memory cell 0 by the contents of memory cell 2
-	mul(*0, *2);
-	exit(*0);
+	add m[0], m[1];
+	mul m[0], m[2];
+	exit m[0];
 
 In principle, we could intersperse data declaration statements and instruction
 statements, and soon we will.  But it is important to keep in mind that the two
 go into two distinct memory spaces.
 
 The `byte` statements determine the contents of the memory.  After the last
-`byte` comes the program.  Instructions take the form `<operation>(target,
-source);` or just `<operation>(source);` when there is no target.  We use the
-notation `*<number>` to denote the contents at memory cell `<number>`.
-Converting a memory address into the contents of its cell is called
-/dereferencing/ (aside: the concept, and the word, might seem slightly odd,
-since we don't know how to do /referencing/ yet; that will come soon.)
+`byte` comes the program.  Instructions take the form `<operation> target,
+source;` or just `<operation> source;` when there is no target.  We use the
 
 ### TODO implement assembler
 
