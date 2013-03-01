@@ -1,5 +1,7 @@
 # Experimental minimal virtual machine from the ground up
 
+# TODO really should start with the bit.
+
 It starts with a byte.
 
 Consisting of 8 bits (binary digits) that are either 0 are 1, the byte is a
@@ -9,10 +11,11 @@ fundamental unit of data representation.
 
 It can be used to represent 2^8 = 256 different integers, and this is where
 we'll start.  To show the binary representation of a number, we say
-`0b<dddddddd>`, where `d`s the bits of the byte, from the most significant to the
-least significant.  If there number of `d`s is less than 8, the highest digits
-are taken to be zero.  This lets us represent the integers 0 (0b00000000) to 255
-(0b11111111).  Right now, we'll concern ourselves with just nonnegative integers.
+`0b<dddddddd>`, where `d`s denote the bits of the byte, from the most
+significant to the least significant.  If there number of `d`s is less than 8,
+the highest digits are taken to be zero.  This lets us represent the integers 0
+(0b00000000) to 255 (0b11111111).  Right now, we'll concern ourselves with just
+nonnegative integers.
 
 Memory is an area with many bytes, said to consist of memory cells that can hold
 one byte of data.
@@ -62,6 +65,7 @@ subtract, 2 is multiply, 3 division, and so on.
 	00000001 subtract B from A
 	00000010 multiply A with B
 	00000011 divide A by B
+	00000100 divide A by B, leave the remainder 
 
 The instructions live in a memory like the data they operate on, only it is a
 different kind of memory.  It, too, has addresses like the data memory: the
@@ -80,22 +84,22 @@ is the initial state of the memory:
 
 Bytes at addresses 0, 1, and 2 contain the number 1, 2, and 3, respectively.
 
-Here is our program.  We have annotated it with a special notation: `*<number>`
-means 'the byte at address <number>'.  
+Here is our program.  We have annotated it with a notation where `m[<number>]`
+means the memory cell at `<number>`.
 
 ### TODO comments
 
-	// add *0b00000001 to *0b00000000 
+	// add m[0b00000001] to m[0b00000000] 
 	00000000 00000000 00000000 00000001
 
-	// multiply *0b00000000 with *0b00000010 
+	// multiply m[0b00000000] with m[0b00000010]
 	00000010 00000000 00000000 00000010  
 
 How does the machine know when to stop executing?  For that, we have a special
 instruction `exit`, which only takes one address, whose contents it presents as
 a result.  The exit instruction has the following bit representation:
 
-10000000 00000000 0000aaaa aaaaaaaa
+00001111 00000000 0000aaaa aaaaaaaa
 
 Note that even though the exit instruction has space for the target operand, it
 is never used.  In fact, the bits usually reserved for the target operand may
@@ -146,10 +150,12 @@ bytes for instructions.
 	};
 
 	uint32 code[code_size] = {
-		0x00000001, // add *0, *1
-		0x02000002, // mul *0, *2
-		0x80000000, // exit *0
+		0x00000001, // add m[0], m[1]
+		0x02000002, // mul m[0], m[2]
+		0x0f000000, // exit m[0]
 	};
+
+# TODO
 
 To decode the instructions, we define a handful of masks:
 
@@ -306,12 +312,12 @@ the following syntax:
 
 	byte <variable> = <number>;
 
-This tells the assembler to allocate space for `<variable>` from the memory, and
-initialize that memory location with `<number>`.
+This variable declaration tells the assembler to allocate space for
+`<variable>`, and initialize that memory location with `<number>`.
 
-The first variable is at memory location 0, and the subsequent variables come
-after that.  The program can simply use the variable's name when it wants to
-address that memory location.
+The first variable is at memory location 0, the second at memory location 1,
+etc.  The program can simply use the variable's name when it wants to address
+that memory location.
 
 Converted to use variables, the original program looks like:
 
@@ -325,11 +331,81 @@ Converted to use variables, the original program looks like:
 
 ### TODO negative numbers, signed and unsigned operations 
 
+### Arithmetic operators
+
+### TODO Storing number to memory, fetching numbers from memory
+
+Suppose we want to read a number from a memory location (say, 0), and store it
+in another memory location (say, 1).
+
+With our current instruction set, it is certainly possible.  We can do
+
+	mul(*1, 0);
+	add(*1, *0);
+
+This program first sets *1 to zero, and then adds *0 to it.  It accomplishes our
+goal, but it is not an ideal solution.  To be maximally readable, a program
+should communicate what it tries to do at the right level of abstraction.  So we
+should have an instruction to do that, and that instruction is called `set`.
+
+	set(a, b);
+
+`set` reads `b`, and writes into `a`.  `a` is a memory address, and `b` may be a
+memory address or an immediate value.
+
+The bit representation for `set` is
+
+
+
+A program should always 
+
+Could we replace it with a simpler program
+A single-instruction program
+It would be more readable to just
+encode this program like this:
+
+	set(
+
+It is a program
+an idea screaming for a shortcut
+it makes reading programs harder, and it forces
+us to use two pri
+
 # From bytes to integers
 
 We can write many useful programs with our little machine, but 8 bits only gets
-you so far.  To perform operations on larger numbers, we need to expand our 
+you so far.  To perform operations on larger numbers, we need to expand our
+horizons.  Let's start to use 16-bit, 32-bit, and 64-bit numbers.  
 
+	-> conversion instructions
+
+Little endian
+
+	-> 
+
+
+
+# Stack
+
+Stack is a tool for unfinished computation.
+
+I want to do something 
+
+It's useful 
+
+# Selection
+
+"If this, do that"
+
+ifeq, ifne, iflt, ifgt, ifle, ifge
+
+# Macros
+
+Remember the "a program should always communicate what it wants to do..."
+
+Then, we solved our problem of moving `x` to `y` by saying `mul x, 0; add x,
+y;`.  The right level of abstraction was achieved by introducing a new
+instruction 
 
 macros:
 
@@ -341,6 +417,84 @@ macro plus(x, y) {
 * are inlined and typeless
 * special variable `result` 
 * how do they work
+
+Since we control both our instruction set and are equipped by the ability to
+write macros, which one should we choose when creating a new abstraction? 
+
+This is a delicate question, which requires careful balancing of several
+variables: the simplicity of the instruction set (helps understandability and
+makes it easier to write an efficient implementation (+ verifiable)), the
+length of the expanded code, ...
+
+Right now, our instruction set is rather simple and there is quite a
+bit of room to expand it, so the emphasis is on building the instruction set.
+When longer, more complex, and not less generally useful abstractions are
+required, macros are a better bet.  The equation will further be complicated
+when new means of abstraction become available.  
+
+# Types (selecting macro based on argument types)
+
+macro plus(ref int64 a, ref int64 b) {
+	result = a;
+	add64(result, b)
+}
+
+macro int8 plus(ref int8 a, ref int8 b) {
+	result = a;
+	add8(result, b);
+}
+
+# Functions
+
+Macros are useful for avoid repetition, but they have one deficiency: they
+cannot refer to themselves, even indirectly, since the macro expansion would be
+infinitely big.  We would like to have the opportunity of choosing whether to
+expand a macro based on the data available to it during the run time.  But this
+is not possible, since macro expansions are done during compile time.
+
+The solution is a /function/: a block of code that we can /call/, passing it
+some values in the stack, and that will produce a value in the stack when it
+returns.  Functionally, calling a function is equivalent to calling a macro: it
+will consume items from the stack, and leave its return value on the top of the
+stack.  But functions have the additional perk of being able to call themselves.
+Also, if you have lots of repeated code, you can compress it by taking repeated
+pieces of code, making a function out the repeated code, and replacing the
+original code sequences by function calls.  (aside: We call this kind of
+activity /refactoring/: changing of the code so that its meaning won't change,
+but its other properties, such as size, readability, or efficiency, change
+(hopefully for the better!).  A refactoring can also go into the other
+direction: if a function is only called once, it may make sense to make it a
+macro, or by manually insert the function's code into the location where it is
+called.).
+
+# TODO fp and calling sequence
+
+# TODO really equivalent to macros? Do macro calls first push a return value to
+# the stack?  Guess they do, since they don't push the arguments at all.
+
+A function for finding out the length of a linked list might look like this:
+
+	int32 list_size(int32 head) {
+		ifne(head, 0);
+		goto(nonzero);
+		// TODO check that this is the correct location for return value
+		// 'result' might always refer to *(fp + 2 + argc)
+		set(*(fp + 3), 0);
+		ret();
+	nonzero:
+		push(*head); // TODO let's see how double dereferences happen
+		call(list_size);
+		set(*(fp + 3), 1);
+		add(*(fp + 3), *sp);
+		ret();
+	}
+
+# Operator overloading
+
+	a + b => add(a, b)
+	a + b * c => add(a, add(b, c))
+
+# Types (structs)
 
 types:
 

@@ -1,0 +1,58 @@
+
+	Instructions 0-7: basic arithmetic
+
+	sww00000 add
+	sww00001 sub
+	sww00010 mul
+	sww00011 div
+	sww00100 rem (a % b, b determines sign of result)
+	sww00101 muls
+	sww00110 divs
+	sww00111 mod (a % b, a determines sign of result)
+
+	Instructions 8-15: bitwise arithmetic
+
+	sww01000 or
+	sww01001 xor
+	sww01010 and
+	sww01011 shl (shift a left by b)
+	sww01100 shr (shift a right b)
+	sww01101 asr (arithmetic shift right a by b (fill in with highest bit))
+	sww01110 (reserved)
+	sww01111 exit
+
+	Instructions 16-23: misc & comparisons
+
+	sww10000 set (set a to b)
+	sww10001 load (set a to m[b])
+	sww10010 store (set m[a] to b)
+	sww10011 expand (expand b into 64-bit value a (s: signed))
+	sww10100 call
+	sww10101 ret
+	sww10110 ifeq (if a == b)
+	sww10111 ifne (if a != b)
+
+	Instructions 24-31: comparisons
+
+	sww11000 iflt (if a < b)
+	sww11001 ifle (if a <= b)
+	sww11010 ifgt (if a > b)
+	sww11011 ifge (if a >= b)
+	sww11100 iflts (if a < b, signed comparison)
+	sww11101 ifles (if a <= b, signed comparison)
+	sww11110 ifgts (if a > b, signed comparison)
+	sww11111 ifges (if a >= b, signed comparison)
+
+	w = width:
+
+	00: 8 bits
+	01: 16 bits
+	10: 32 bits
+	11: 64 bits
+
+	s: special
+	with expand, signedness; could be with shr as well
+	with basic arithmetic and 
+
+
+
