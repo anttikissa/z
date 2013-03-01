@@ -1,0 +1,40 @@
++ is or
+
+0 + 0 == 00
+0 + 1 == 01
+1 + 0 == 01
+1 + 1 == 10 (or 0 with carry 1)
+
+- is xor
+
+0 - 0 == 00
+0 - 1 == 11 (or 1 with "carry": -1)
+1 - 0 == 01
+1 - 1 == 00
+
+* is and
+
+0 * 0 == 00
+0 * 1 == 00
+1 * 0 == 00
+1 * 1 == 01
+
+/ is 'given'
+
+0 / 0 == error
+0 / 1 == 00
+1 / 0 == error
+1 / 1 == 01
+
+	a / b <=> "a if b; if not b, all bets are off"
+
+or
+
+	a / b <=> assert b; a
+
+We might want to use this in situations like
+
+	person.name given `person`;
+
+(but no, not really)
+
