@@ -61,7 +61,7 @@ have access to the instance variables):
 
 	type Person {
 		int age;
-		get_age() {
+		int get_age() {
 			// Here, age refers to this.age, not to get_age(), avoiding the infinite
 			// loop
 			return age;
@@ -72,6 +72,30 @@ The convention of prefixing instance (or otherwise private) variables with `_`
 might work well with this rule.  We wouldn't need any special cases, since
 nobody with their sane mind would do a method called `get__foo`.  Unless they
 really needed one &mdash; and then it would possible.
+
+Possibly use the form `this.age` to bypass the getter.  That's a bit hacky
+though.
+
+	int a1 = this.age; // no getter
+	Person& p = this; // alias for `this`
+	int a2 = p.age; // getter
+
+This might be an actual case:
+
+type Person {
+	int age;
+	int get_age() {
+		log("Age accessed");
+		return age;
+	}
+	compare(Person& other) {
+		Person& younger = this.age < other.age ? this : other;
+		// do something with `younger`
+	}
+}
+
+Also doing the choice based on whether we're inside the getter is too arbitrary.
+(Would make it hard to extract code from the getter into methods)
 
 TODO should set_foo(bar) always return a copy of the variable in order to make
 "a = b = c" behave as expected?
